@@ -1,0 +1,67 @@
+# Builds the Meshtastic firmware for the T-Deck with T-Field UI: this version of the
+# interface, through the device-ui fork that adapts it. The .bin files are kept as an
+# artifact of the run (Actions › Firmware › the run › Artifacts).
+name: Firmware
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "include/**", "fonts/**", "library.json", ".github/workflows/firmware.yml"]
+  workflow_dispatch:
+
+env:
+  # tested together: the fork is based on the device-ui this firmware commit uses
+  FIRMWARE_REF: fe89ac1ddbbe02cdcc4d15a33f1967f5dcd55daa
+  FORK: https://github.com/Roberto-Larregla/device-ui.git
+
+jobs:
+  t-deck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: t-field-ui
+
+      - name: Meshtastic firmware and the device-ui fork
+        run: |
+          git init -q firmware
+          git -C firmware fetch -q --depth 1 https://github.com/meshtastic/firmware.git "$FIRMWARE_REF"
+          git -C firmware checkout -q FETCH_HEAD
+          git -C firmware submodule update -q --init --depth 1 protobufs
+          git clone -q --depth 1 "$FORK" device-ui
+          # this commit of T-Field UI instead of the one the fork pins
+          python3 - <<'EOF'
+          import json, os
+          p = 'device-ui/library.json'
+          j = json.load(open(p))
+          j['dependencies']['t-field-ui'] = 'symlink://' + os.path.abspath('t-field-ui')
+          json.dump(j, open(p, 'w'), indent=2)
+          EOF
+          sed -i -E "s#https://github.com/meshtastic/device-ui/archive/[0-9a-f]+\.zip#symlink://$PWD/device-ui#" firmware/platformio.ini
+          grep -n "symlink://" firmware/platformio.ini
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ env.FIRMWARE_REF }}
+
+      - name: Build t-deck-tft
+        run: |
+          pip install -q platformio
+          cd firmware
+          pio run -e t-deck-tft
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-t-deck-t-field-ui
+          path: |
+            firmware/.pio/build/t-deck-tft/*.bin
+            firmware/.pio/build/t-deck-tft/*.elf
+          if-no-files-found: error
