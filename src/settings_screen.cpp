@@ -714,6 +714,20 @@ void SettingsScreen::sec_messages()
     };
     q.text = [] { return std::string(tr("Editar")); };
     q.act = [this] { app_->show(ScreenId::QuickReplies); };
+    Row &k = add(CHOICE, tr("Borrar mensajes de m\xC3\xA1s de"), tr("Se borran solos; los canales quedan"));
+    k.text = [this] {
+        switch (ST.msg_keep_days) {
+        case 1: return std::string(tr("1 d\xC3\xAD" "a"));
+        case 7: return std::string(tr("7 d\xC3\xAD" "as"));
+        case 30: return std::string(tr("30 d\xC3\xAD" "as"));
+        default: return std::string(tr("Nunca"));
+        }
+    };
+    k.step = [this](int d, bool w) { EDIT(s.msg_keep_days = pick<uint8_t>({0, 1, 7, 30}, s.msg_keep_days, d, w)); };
+    Row &x = add(ACTION, tr("Borrar todos los chats"), tr("Los directos desaparecen y los canales quedan vac\xC3\xAD" "os"));
+    x.text = [] { return std::string(tr("Borrar")); };
+    x.confirm = true;
+    x.act = [this] { app_->clear_all_chats(); };
     add(NOTE, tr("Los chats sin sonido (fuera de tu equipo) marcan sus mensajes nuevos con un n\xC3\xBAmero gris en vez de azul."));
 }
 

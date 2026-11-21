@@ -132,6 +132,7 @@ std::string settings_to_text(const Settings &s)
     put("kbd_light", s.kbd_light);
     put("theme", s.theme);
     put("lang", s.lang);
+    put("msg_keep_days", s.msg_keep_days);
     put("gps", s.gps);
     put("pos_every_s", s.pos_every_s);
     put("pos_smart", s.pos_smart);
@@ -227,6 +228,7 @@ Settings settings_from_text(const std::string &text)
         else if (k == "kbd_light") flag(s.kbd_light);
         else if (k == "theme") u8(s.theme, 0, 2);
         else if (k == "lang") u8(s.lang, 0, 1);
+        else if (k == "msg_keep_days") u8(s.msg_keep_days, 0, 30);
         else if (k == "gps") flag(s.gps);
         else if (k == "pos_every_s") u16(s.pos_every_s, 30, 43200);
         else if (k == "pos_smart") flag(s.pos_smart);

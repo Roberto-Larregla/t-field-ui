@@ -137,6 +137,7 @@ struct Message {
     uint32_t waypoint_id = 0; // mensaje de punto compartido: se puede abrir en el mapa
     uint32_t pending_wp = 0;  // punto recibido que espera "Guardar punto"
     uint32_t invite_id = 0;   // invitación a un canal privado que espera "Unirse"
+    uint32_t epoch = 0;       // UTC de llegada (0 = desconocida: no se borra por antigüedad)
 };
 
 struct QuickReplies {

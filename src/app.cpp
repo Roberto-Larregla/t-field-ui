@@ -172,6 +172,10 @@ void App::set_status(const Status &s)
     }
     home.set_status(status_);
     messages_screen.set_status(status_);
+    if (settings_.msg_keep_days && status_.epoch && status_.epoch - last_purge_ >= 600) {
+        last_purge_ = status_.epoch;
+        purge_old_messages();
+    }
     // automático: oscuro de noche, en un momento tranquilo (no a medio escribir)
     if (settings_.theme == 2 && wants_dark() != g_dark && !look_pending_ && !ui_busy() &&
         (current_ == ScreenId::Home || lv_display_get_inactive_time(nullptr) > 60000))
@@ -1260,6 +1264,8 @@ void App::add_message(const std::string &in_id, const Message &m, bool alert)
     }
     auto &list = messages_[chat_id];
     list.push_back(m);
+    if (!list.back().epoch)
+        list.back().epoch = status_.epoch; // hora de llegada (para el borrado automático)
     msg_rev_[chat_id]++;
     msg_added_[chat_id]++; // solo se agregó al final: la conversación abierta suma una burbuja
     if (list.size() > CHAT_KEEP_MESSAGES) // memoria acotada: los más antiguos se descartan
@@ -1625,6 +1631,8 @@ void App::update_settings(const Settings &s)
     }
     if (prev.theme != s.theme || prev.lang != s.lang)
         apply_look(); // a mano en Ajustes: ya
+    if (prev.msg_keep_days != s.msg_keep_days)
+        purge_old_messages();
 }
 
 void App::show_settings_section(int section) { go(View{ScreenId::Settings, 0, "", (int8_t)section}, true, false); }
@@ -1640,6 +1648,79 @@ bool App::is_team_chat(const Chat &ch) const
 }
 
 bool App::chat_muted(const Chat &ch) const { return !is_team_chat(ch) && !settings_.snd_others; }
+
+// ------------------------------------------------------------- borrar chats
+void App::forget_chat(const std::string &chat_id, bool remove)
+{
+    messages_.erase(chat_id);
+    msg_rev_[chat_id]++;
+    for (auto it = chats_.begin(); it != chats_.end(); ++it)
+        if (it->id == chat_id) {
+            if (remove)
+                chats_.erase(it);
+            else
+                it->preview.clear(), it->time.clear(), it->unread = 0;
+            break;
+        }
+    if (on_clear_chat)
+        on_clear_chat(chat_id, remove);
+    if (remove && messages_screen.current == chat_id)
+        messages_screen.current = chats_.empty() ? std::string() : chats_.front().id;
+}
+
+void App::delete_chat(const std::string &chat_id)
+{
+    bool channel = false;
+    for (auto &ch : chats_)
+        if (ch.id == chat_id)
+            channel = ch.is_channel;
+    forget_chat(chat_id, !channel);
+    publish_chats();
+    messages_screen.show_chat(messages_screen.current);
+}
+
+void App::clear_all_chats()
+{
+    std::vector<std::pair<std::string, bool>> all;
+    for (auto &ch : chats_)
+        all.push_back({ch.id, !ch.is_channel});
+    for (auto &c : all)
+        forget_chat(c.first, c.second);
+    publish_chats();
+    messages_screen.show_chat(messages_screen.current);
+}
+
+void App::purge_old_messages()
+{
+    if (!settings_.msg_keep_days || !status_.epoch)
+        return;
+    uint32_t limit = settings_.msg_keep_days * 86400u;
+    if (status_.epoch < limit)
+        return;
+    uint32_t cut = status_.epoch - limit;
+    std::vector<std::string> emptied;
+    for (auto &kv : messages_) {
+        auto &list = kv.second;
+        size_t n = list.size();
+        list.erase(std::remove_if(list.begin(), list.end(), [cut](const Message &m) { return m.epoch && m.epoch < cut; }),
+                   list.end());
+        if (list.size() != n) {
+            msg_rev_[kv.first]++;
+            if (list.empty())
+                emptied.push_back(kv.first);
+        }
+    }
+    for (auto &id : emptied) { // un directo sin mensajes desaparece; un canal queda vacío
+        bool channel = false;
+        for (auto &ch : chats_)
+            if (ch.id == id)
+                channel = ch.is_channel;
+        forget_chat(id, !channel);
+    }
+    refresh_previews(chats_, messages_);
+    publish_chats();
+    messages_screen.refresh_conversation(false);
+}
 
 void App::publish_chats()
 {

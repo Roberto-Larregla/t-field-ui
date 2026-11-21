@@ -109,7 +109,11 @@ class MessagesScreen {
     void trim_bubbles(size_t keep);
     size_t bubble_count() const;
     std::vector<std::pair<lv_obj_t *, lv_obj_t *>> bubble_btns_; // (burbuja, botón dentro)
-    lv_obj_t *esc_ = nullptr, *more_btn_ = nullptr;
+    lv_obj_t *esc_ = nullptr, *more_btn_ = nullptr, *del_btn_ = nullptr, *del_lbl_ = nullptr;
+    bool del_armed_ = false;
+    std::string fitted_title_; // nombre para el que se ajustó la cabecera
+    uint32_t del_armed_at_ = 0;
+    void disarm_delete();
     std::string shown_chat_; // lo dibujado, para no rehacerlo si no cambió
     uint32_t shown_rev_ = 0, shown_added_ = 0;
     size_t show_n_ = CHAT_SHOW_MESSAGES; // burbujas del chat abierto ("Mensajes anteriores" suma más)
@@ -284,6 +288,9 @@ class App {
     std::function<bool(const std::string &path, const std::string &content)> on_append_file;
     // Sonido de aviso
     std::function<void(Alert, const std::string &what)> on_alert;
+    // Se borró el historial de un chat (el adaptador borra lo que guarde). remove: el chat
+    // directo desaparece de la lista; si no, es un canal que queda vacío.
+    std::function<void(const std::string &chat_id, bool remove)> on_clear_chat;
     // Canal privado: crear / cambiar clave o nombre / unirse (name vacío = quitarlo)
     std::function<void(const std::string &name, const ChannelKey &key)> on_channel_set;
     // Invitación: mensaje directo cifrado con la clave pública del nodo (puerto privado de la app)
@@ -345,6 +352,11 @@ class App {
     void send(const std::string &chat_id, const std::string &text);
     void save_quick(const QuickReplies &q);
     void open_chat(const std::string &chat_id);
+    // Borrar: un canal queda vacío; un chat directo desaparece (vuelve al escribirle desde
+    // Equipo › ficha › Mensaje, o cuando el otro escriba)
+    void delete_chat(const std::string &chat_id);
+    void clear_all_chats();
+    void purge_old_messages(); // los de más de Ajustes › Mensajes › días (se llama solo)
     // Rutas
     void start_recording();
     void stop_recording();   // pausa; la pantalla pregunta si guardar o desechar
@@ -463,6 +475,8 @@ class App {
     std::map<std::string, std::vector<Message>> messages_;
     std::map<std::string, uint32_t> msg_rev_;   // cambia con cada mensaje nuevo o editado
     std::map<std::string, uint32_t> msg_added_; // cuenta solo los agregados al final
+    uint32_t last_purge_ = 0;
+    void forget_chat(const std::string &chat_id, bool remove);
     Position position_;
     std::vector<Waypoint> waypoints_;
     Track track_;

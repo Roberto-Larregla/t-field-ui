@@ -188,3 +188,13 @@ Las pruebas automáticas (42, más una prueba al azar de 5000 pasos con 12 semil
 - **Pruebas:** el cambio repetido no pierde memoria; en inglés se recorren todas las pantallas y no queda texto en español.
 - **Para el adaptador:** los estados de mensaje y los roles de nodo se entregan en español (*Enviado*, *Entregado*, *cliente*, *repetidor*…): la interfaz los traduce.
 
+
+## 13. Borrar chats
+
+- **Un chat:** en la conversación, botón *Borrar* arriba a la derecha. La primera pulsación pregunta (*¿Borrar?* en rojo); la segunda borra. Se desarma al mover el foco, cambiar de chat o salir de la pantalla.
+- **Canal o directo:** un canal queda en la lista, vacío (sigue suscrito). Un chat directo desaparece.
+- **Volver a escribir a alguien:** Equipo › ficha del nodo › *Mensaje* recrea el chat directo. También reaparece solo cuando el otro escribe.
+- **Todos:** Ajustes › Mensajes › *Borrar todos los chats* (pide confirmar). Quedan solo los canales, vacíos.
+- **Automático:** Ajustes › Mensajes › *Borrar mensajes de más de* Nunca / 1 día / 7 días / 30 días. Se revisa cada 10 minutos y al cambiar el ajuste. Cuenta desde la hora de llegada (`Message.epoch`); los mensajes sin hora conocida (antes de tener GPS o reloj) no se borran por antigüedad. Un directo que queda sin mensajes desaparece; un canal queda vacío.
+- **Para el adaptador:** `on_clear_chat(chat_id, remove)` avisa para borrar el historial guardado. `remove` es verdadero si el chat directo desapareció. Si el adaptador conoce la hora real de un mensaje antiguo (al cargar el historial), la pone en `epoch`.
+- **Cabecera:** con un nombre largo se corta con "…" y se oculta *mensaje directo*, para no pisar el botón.

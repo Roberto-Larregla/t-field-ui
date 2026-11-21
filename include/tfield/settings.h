@@ -39,6 +39,7 @@ struct Settings {
     bool kbd_light = true;
     uint8_t theme = 0;          // 0 claro, 1 oscuro, 2 automático (oscuro de noche)
     uint8_t lang = 0;           // 0 español, 1 inglés
+    uint8_t msg_keep_days = 0;  // borrar mensajes de más de N días (0 = nunca; 1, 7 o 30)
     // GPS y posición
     bool gps = true;
     uint16_t pos_every_s = 900; // envío de posición a la red

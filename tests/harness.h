@@ -101,6 +101,7 @@ struct Log {
     std::vector<std::string> appends; // "ruta|contenido" agregado al final
     bool sd_ok = true;                // false: simula tarjeta SD ausente o llena
     std::map<std::string, std::string> fs; // contenido de la tarjeta SD simulada
+    std::vector<std::string> cleared;      // chats borrados ("id|1" si desapareció)
     std::vector<std::string> deleted;
     std::vector<std::string> alerts; // "tipo|texto"
     std::vector<uint32_t> invites, pos_requests;

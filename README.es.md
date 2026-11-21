@@ -17,7 +17,7 @@ Interfaz de terreno para la **LILYGO T-Deck Plus** con **Meshtastic**: mensajes,
 ## Qué hace
 
 - **Inicio:** hora, luz del día que queda, batería y GPS propios; distancia, rumbo, diferencia de altura, batería y señal de cada compañero; últimos chats y respuestas rápidas.
-- **Mensajes:** chats y canales, respuestas rápidas editables, contador de bytes (el límite de Meshtastic) y puntos compartidos con «Ver en el mapa».
+- **Mensajes:** chats y canales, respuestas rápidas editables, contador de bytes (el límite de Meshtastic) y puntos compartidos con «Ver en el mapa». Borrar un chat (dos pulsaciones), todos, o los mensajes de más de 1, 7 o 30 días.
 - **Mapa:** mapa base desde la tarjeta SD o cuadrícula UTM; puntos (P1, P2…), rutas grabadas en GPX (R1, R2…), regla, destino y rastro de cada compañero.
 - **Equipo:** «Mi equipo» y toda la red; ficha de cada nodo, pedir posiciones a todos y ruta de señal.
 - **SOS:** por el canal y directo a cada miembro, mostrando quién lo recibió.

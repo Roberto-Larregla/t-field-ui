@@ -269,6 +269,7 @@ void hook_app()
         rec.fs.erase(path);
         return true;
     };
+    app->on_clear_chat = [](const std::string &id, bool remove) { rec.cleared.push_back(id + (remove ? "|1" : "|0")); };
     app->on_read_file = [](const std::string &path, std::string &content) {
         auto it = rec.fs.find(path);
         if (!rec.sd_ok || it == rec.fs.end())

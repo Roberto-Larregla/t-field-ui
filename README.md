@@ -19,7 +19,7 @@ The interface comes in **Spanish and English**, with a **light, dark or automati
 ## Features
 
 - **Home:** time, remaining daylight, own battery and GPS; distance, bearing, height difference, battery and signal for each teammate; latest chats and quick replies.
-- **Messages:** chats and channels, editable quick replies, a byte counter (Meshtastic's real limit) and shared waypoints with "Ver en el mapa" (show on map).
+- **Messages:** chats and channels, editable quick replies, a byte counter (Meshtastic's real limit) and shared waypoints with "Ver en el mapa" (show on map). Delete one chat (press twice), all chats, or messages older than 1, 7 or 30 days.
 - **Map:** base map tiles from the SD card or a UTM grid; waypoints (P1, P2…), recorded GPX tracks (R1, R2…), a ruler, a navigation target and each teammate's trail.
 - **Team:** "my team" and the whole mesh; a card for each node, request positions from everyone, and traceroute.
 - **SOS:** sent on the channel and directly to each teammate, showing who received it.

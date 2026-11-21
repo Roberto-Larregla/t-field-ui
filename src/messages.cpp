@@ -75,8 +75,42 @@ void MessagesScreen::create(App *app)
     border(ch, col::LINE, 1, LV_BORDER_SIDE_BOTTOM);
     conv_title_ = label(ch, &tfield_font_12b, col::INK, "");
     lv_obj_set_pos(conv_title_, 6, 3);
+    lv_label_set_long_mode(conv_title_, LV_LABEL_LONG_MODE_DOTS);
+    fitted_title_.clear();
     conv_meta_ = label(ch, &tfield_font_12, col::INK2, "");
-    ui::align(conv_meta_, LV_ALIGN_TOP_RIGHT, -6, 3);
+    ui::align(conv_meta_, LV_ALIGN_TOP_RIGHT, -66, 3);
+    // Borrar el chat: la primera pulsación pregunta, la segunda borra
+    del_btn_ = button(ch, CONV_W - 60, 2, 56, 16, col::BG, col::LINE, nullptr);
+    lv_obj_set_style_radius(del_btn_, 3, 0);
+    del_lbl_ = label(del_btn_, &tfield_font_12b, col::INK2, tr("Borrar"));
+    lv_obj_center(del_lbl_);
+    lv_obj_add_event_cb(
+        del_btn_, [](lv_event_t *e) {
+            auto *s = static_cast<MessagesScreen *>(lv_event_get_user_data(e));
+            if (s->current.empty())
+                return;
+            if (!s->del_armed_ || lv_tick_elaps(s->del_armed_at_) > 5000) {
+                s->del_armed_ = true;
+                s->del_armed_at_ = lv_tick_get();
+                set_bg(s->del_btn_, col::RED);
+                set_border_color(s->del_btn_, col::RED);
+                set_color(s->del_lbl_, col::SURF);
+                set_text(s->del_lbl_, tr("\xC2\xBF" "Borrar?"));
+                lv_obj_center(s->del_lbl_);
+                return;
+            }
+            s->disarm_delete();
+            lv_async_call([](void *p) { // la lista se rehace: fuera del evento del botón
+                auto *s = static_cast<MessagesScreen *>(p);
+                s->app_->delete_chat(s->current);
+                s->rebuild_focus();
+                s->focus_input();
+            }, s);
+        },
+        LV_EVENT_CLICKED, this);
+    lv_obj_add_event_cb(
+        del_btn_, [](lv_event_t *e) { static_cast<MessagesScreen *>(lv_event_get_user_data(e))->disarm_delete(); },
+        LV_EVENT_DEFOCUSED, this);
 
     int32_t conv_y = HEAD_H + CONV_HDR_H, conv_h = SCREEN_H - conv_y - COMPOSE_H;
     conv_ = box(screen, CONV_X, conv_y, CONV_W, conv_h, col::SURF);
@@ -126,11 +160,25 @@ void MessagesScreen::create(App *app)
 }
 
 // Orden de foco: Esc → chats → botones de la conversación → texto → Enviar → Respuestas rápidas
+void MessagesScreen::disarm_delete()
+{
+    if (!del_armed_)
+        return;
+    del_armed_ = false;
+    set_bg(del_btn_, col::BG);
+    set_border_color(del_btn_, col::LINE);
+    set_color(del_lbl_, col::INK2);
+    set_text(del_lbl_, tr("Borrar"));
+    lv_obj_center(del_lbl_);
+}
+
 void MessagesScreen::rebuild_focus()
 {
     std::vector<lv_obj_t *> objs{esc_};
     for (auto &r : rows_)
         objs.push_back(r.row);
+    if (!current.empty())
+        objs.push_back(del_btn_);
     if (more_btn_)
         objs.push_back(more_btn_);
     for (auto &b : bubble_btns_)
@@ -153,6 +201,7 @@ void MessagesScreen::set_draft(const std::string &text)
 
 void MessagesScreen::focus_input()
 {
+    disarm_delete(); // volver a la pantalla no deja el "¿Borrar?" armado
     lv_group_focus_obj(input_);
 }
 
@@ -271,6 +320,17 @@ void MessagesScreen::refresh_conversation(bool force)
             chat = &ch;
     set_text(conv_title_, chat ? chat->name : "");
     set_text(conv_meta_, chat ? (chat->is_channel ? tr("canal cifrado") : tr("mensaje directo")) : "");
+    show(del_btn_, chat != nullptr);
+    if (chat && chat->name != fitted_title_) { // un nombre largo no pisa "mensaje directo" ni "Borrar"
+        fitted_title_ = chat->name;
+        lv_obj_set_width(conv_title_, LV_SIZE_CONTENT);
+        lv_obj_refr_size(conv_title_);
+        lv_obj_refr_size(conv_meta_);
+        int32_t avail = CONV_W - 6 - 66, tw = lv_obj_get_width(conv_title_), mw = lv_obj_get_width(conv_meta_);
+        show(conv_meta_, tw + 8 + mw <= avail);
+        if (tw > avail)
+            lv_obj_set_width(conv_title_, avail);
+    }
 
     // rehacer las burbujas cuesta (en la T-Deck, ~10 ms cada una): solo si cambió el chat o
     // llegó/cambió un mensaje, y si solo llegaron mensajes nuevos, se agregan al final
@@ -299,8 +359,10 @@ void MessagesScreen::refresh_conversation(bool force)
             lv_obj_scroll_to_y(conv_, LV_COORD_MAX, LV_ANIM_OFF);
         return;
     }
-    if (!same)
+    if (!same) {
         show_n_ = CHAT_SHOW_MESSAGES;
+        disarm_delete();
+    }
     shown_chat_ = chat ? current : std::string();
     shown_rev_ = rev;
     shown_added_ = added;

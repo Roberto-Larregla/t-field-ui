@@ -1,6 +1,7 @@
 // Simulador sin pantalla: dibuja cada vista y la guarda como imagen RGB565 cruda.
 // Uso: sim_png <carpeta_salida>
 #include "tfield/app.h"
+#include "tfield/i18n.h"
 #include "demo.h"
 
 #include <cstdio>
@@ -99,6 +100,9 @@ int main(int argc, char **argv)
     app.open_chat("geo2");
     app.show(tfield::ScreenId::Messages);
     render(out + "/mensajes.raw");
+    click(by_text(app.messages_screen.group, tfield::tr("Borrar"), true)); // la primera pulsación pregunta
+    render(out + "/mensajes_borrar.raw");
+    app.messages_screen.focus_input();
 
     app.show(tfield::ScreenId::QuickReplies);
     render(out + "/respuestas.raw");
