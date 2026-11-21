@@ -60,7 +60,7 @@ T-Field UI is built against that commit.
 Open `platformio.ini` (in the `firmware` folder) and find the `[device-ui_base]` section. Replace the line that starts with `https://github.com/meshtastic/device-ui/archive/` with:
 
 ```ini
-	https://github.com/Roberto-Larregla/device-ui/archive/9de6bfecbcef2a61e37be167a1fa17cab3c9501a.zip
+	https://github.com/Roberto-Larregla/device-ui/archive/5c45b7a73a9362013b969b48acc684a914277961.zip
 ```
 
 Keep the tab at the start of the line. Nothing else in the firmware changes: the radio, the mesh, GPS and encryption are still Meshtastic's.
