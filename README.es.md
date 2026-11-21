@@ -53,7 +53,7 @@ git checkout fe89ac1ddbbe02cdcc4d15a33f1967f5dcd55daa
 git submodule update --init
 ```
 
-Ese commit es con el que T-Field UI se compiló y probó.
+T-Field UI se compila con ese commit.
 
 ### 2. Apuntar el firmware a la versión de device-ui con T-Field UI
 
@@ -76,6 +76,15 @@ Deja la tabulación al comienzo de la línea. Nada más cambia en el firmware: l
 Desde la terminal, los pasos 2 y 4 son: `pio run -e t-deck-tft -t upload`
 
 El firmware conserva los ajustes de Meshtastic del equipo (región, canales, nombre). Para volver a la interfaz estándar, instala de nuevo el firmware oficial con el Web Flasher.
+
+Si la compilación se detiene con `IncompatiblePlatform` y `PlatformIO Core v6.2.0-post.1`, es un problema conocido de la segunda pasada de la plataforma ESP32. Ejecuta esto una vez y vuelve a compilar:
+
+```sh
+~/.platformio/penv/bin/python -m ensurepip
+~/.platformio/penv/bin/python -m pip install "pioarduino==6.2.0"
+```
+
+En Windows la carpeta es `%USERPROFILE%\.platformio\penv\Scripts\`.
 
 ### 4. Preparar la tarjeta microSD (opcional)
 
