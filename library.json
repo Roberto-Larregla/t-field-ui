@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+  "name": "t-field-ui",
+  "version": "0.1.0",
+  "description": "Field user interface for the LILYGO T-Deck Plus on Meshtastic (LVGL)",
+  "keywords": "meshtastic, tdeck, lvgl, gps, map, field",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Roberto-Larregla/t-field-ui.git"
+  },
+  "license": "GPL-3.0-only",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "srcDir": ".",
+    "srcFilter": ["+<src/*.cpp>", "+<fonts/*.c>"],
+    "includeDir": "include",
+    "flags": ["-DLV_LVGL_H_INCLUDE_SIMPLE"]
+  }
+}

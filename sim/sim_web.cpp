@@ -305,7 +305,7 @@ int main()
     };
     app.on_settings_preview = [](const Settings &s) { // aplicar al tiro (el guardado se agrupa)
         static const int shift[] = {0, 0, -2, 3}; // continental, Magallanes, Pascua, UTC (en noviembre)
-        int sh = shift[s.tz % 4];
+        int sh = s.tz < 4 ? shift[s.tz] : 0; // las demás zonas: sin desfase en la demo
         bool changed = sh != demo::tz_shift_h || s.short_name != demo::short_name;
         demo::tz_shift_h = sh;
         demo::short_name = s.short_name;

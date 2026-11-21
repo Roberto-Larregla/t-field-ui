@@ -2105,7 +2105,13 @@ void MapScreen::open_share(uint32_t wp_id, bool just_created)
         lv_obj_t *cb = box(row, 8, 8, 16, 16, col::SURF);
         border(cb, col::INK, 2);
         lv_obj_set_style_radius(cb, 3, 0);
-        lv_obj_t *tick = label(cb, &lv_font_montserrat_14, col::SURF, LV_SYMBOL_OK);
+        // el tic, con líneas: no depende de que el firmware traiga la fuente de símbolos
+        static const lv_point_precise_t tick_pts[] = {{2, 6}, {5, 9}, {10, 2}};
+        lv_obj_t *tick = lv_line_create(cb);
+        lv_line_set_points(tick, tick_pts, 3);
+        lv_obj_set_style_line_width(tick, 2, 0);
+        lv_obj_set_style_line_rounded(tick, true, 0);
+        lv_obj_set_style_line_color(tick, c(col::SURF), 0);
         lv_obj_center(tick);
         // identidad: canal (#) o color del nodo
         lv_obj_t *dot = box(row, 32, 12, 8, 8, r.channel ? (r.color ? r.color : col::INK2) : (r.color ? r.color : col::INK));

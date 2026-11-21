@@ -26,20 +26,61 @@ const ChannelMember *Settings::member(uint32_t num) const
 
 const std::vector<Option> &time_zones()
 {
+    // POSIX (Meshtastic: device.tzdef). Se guardan por código: el orden se puede cambiar.
     static const std::vector<Option> v = {
         {"<-04>4<-03>,M9.1.6/24,M4.1.6/24", "Chile continental", "UTC\xE2\x88\x92" "4, y \xE2\x88\x92" "3 en horario de verano"},
-        {"<-03>3", "Magallanes", "UTC\xE2\x88\x92" "3 todo el a\xC3\xB1o"},
+        {"<-03>3", "UTC\xE2\x88\x92" "3", "Magallanes, Argentina, Uruguay, Brasilia"},
         {"<-06>6<-05>,M9.1.6/22,M4.1.6/22", "Isla de Pascua", "UTC\xE2\x88\x92" "6, y \xE2\x88\x92" "5 en horario de verano"},
         {"UTC0", "UTC", "Hora universal, sin horario de verano"},
+        {"<-04>4", "UTC\xE2\x88\x92" "4", "Bolivia, Venezuela"},
+        {"<-05>5", "UTC\xE2\x88\x92" "5", "Colombia, Per\xC3\xBA, Ecuador"},
+        {"CST6", "M\xC3\xA9xico (centro)", "Ciudad de M\xC3\xA9xico, sin horario de verano"},
+        {"EST5EDT,M3.2.0,M11.1.0", "EE. UU. este", "Nueva York, Toronto"},
+        {"CST6CDT,M3.2.0,M11.1.0", "EE. UU. centro", "Chicago, Winnipeg"},
+        {"MST7MDT,M3.2.0,M11.1.0", "EE. UU. monta\xC3\xB1" "a", "Denver, Calgary"},
+        {"MST7", "Arizona", "Sin horario de verano"},
+        {"PST8PDT,M3.2.0,M11.1.0", "EE. UU. pac\xC3\xAD" "fico", "Los \xC3\x81ngeles, Vancouver"},
+        {"GMT0BST,M3.5.0/1,M10.5.0", "Reino Unido", "Londres, Dubl\xC3\xADn"},
+        {"WET0WEST,M3.5.0/1,M10.5.0", "Portugal", "Lisboa, Canarias"},
+        {"CET-1CEST,M3.5.0,M10.5.0/3", "Europa central", "Madrid, Par\xC3\xADs, Berl\xC3\xADn, Roma"},
+        {"EET-2EEST,M3.5.0/3,M10.5.0/4", "Europa del este", "Atenas, Helsinki, Bucarest"},
+        {"IST-5:30", "India", "UTC+5:30"},
+        {"JST-9", "Jap\xC3\xB3n", "UTC+9"},
+        {"AEST-10AEDT,M10.1.0,M4.1.0/3", "Australia este", "S\xC3\xAD" "dney, Melbourne"},
+        {"NZST-12NZDT,M9.5.0,M4.1.0/3", "Nueva Zelanda", "Auckland, Wellington"},
     };
     return v;
 }
 
 const std::vector<Option> &lora_regions()
 {
+    // Config.LoRaConfig.RegionCode, la que corresponde al país (meshtastic.org/docs/configuration/region-by-country)
     static const std::vector<Option> v = {
-        {"ANZ", "ANZ", "915\xE2\x80\x93" "928 MHz \xC2\xB7 la que corresponde a Chile"},
+        {"ANZ", "ANZ", "915\xE2\x80\x93" "928 MHz \xC2\xB7 Australia, Nueva Zelanda, Chile, Argentina, Colombia"},
         {"US", "US", "902\xE2\x80\x93" "928 MHz \xC2\xB7 Estados Unidos y Canad\xC3\xA1"},
+        {"EU_868", "EU_868", "869,4\xE2\x80\x93" "869,65 MHz \xC2\xB7 Europa"},
+        {"EU_433", "EU_433", "433\xE2\x80\x93" "434 MHz \xC2\xB7 Europa"},
+        {"BR_902", "BR_902", "902\xE2\x80\x93" "907,5 MHz \xC2\xB7 Brasil"},
+        {"NZ_865", "NZ_865", "864\xE2\x80\x93" "868 MHz \xC2\xB7 Nueva Zelanda"},
+        {"ANZ_433", "ANZ_433", "433\xE2\x80\x93" "434,8 MHz \xC2\xB7 Australia y Nueva Zelanda"},
+        {"CN", "CN", "470\xE2\x80\x93" "510 MHz \xC2\xB7 China"},
+        {"JP", "JP", "920,5\xE2\x80\x93" "923,5 MHz \xC2\xB7 Jap\xC3\xB3n"},
+        {"KR", "KR", "920\xE2\x80\x93" "923 MHz \xC2\xB7 Corea del Sur"},
+        {"TW", "TW", "920\xE2\x80\x93" "925 MHz \xC2\xB7 Taiw\xC3\xA1n"},
+        {"RU", "RU", "868,7\xE2\x80\x93" "869,2 MHz \xC2\xB7 Rusia"},
+        {"IN", "IN", "865\xE2\x80\x93" "867 MHz \xC2\xB7 India"},
+        {"TH", "TH", "920\xE2\x80\x93" "925 MHz \xC2\xB7 Tailandia"},
+        {"UA_433", "UA_433", "433\xE2\x80\x93" "434,7 MHz \xC2\xB7 Ucrania"},
+        {"MY_433", "MY_433", "433\xE2\x80\x93" "435 MHz \xC2\xB7 Malasia"},
+        {"MY_919", "MY_919", "919\xE2\x80\x93" "924 MHz \xC2\xB7 Malasia"},
+        {"SG_923", "SG_923", "917\xE2\x80\x93" "925 MHz \xC2\xB7 Singapur"},
+        {"PH_433", "PH_433", "433\xE2\x80\x93" "434,7 MHz \xC2\xB7 Filipinas"},
+        {"PH_868", "PH_868", "868\xE2\x80\x93" "869,4 MHz \xC2\xB7 Filipinas"},
+        {"PH_915", "PH_915", "915\xE2\x80\x93" "918 MHz \xC2\xB7 Filipinas"},
+        {"KZ_433", "KZ_433", "433\xE2\x80\x93" "434,8 MHz \xC2\xB7 Kazajist\xC3\xA1n"},
+        {"KZ_863", "KZ_863", "863\xE2\x80\x93" "868 MHz \xC2\xB7 Kazajist\xC3\xA1n"},
+        {"NP_865", "NP_865", "865\xE2\x80\x93" "868 MHz \xC2\xB7 Nepal"},
+        {"LORA_24", "LORA_24", "2,4 GHz \xC2\xB7 todo el mundo"},
     };
     return v;
 }

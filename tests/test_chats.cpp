@@ -185,3 +185,39 @@ APP_TEST(cabecera_con_nombre_largo)
     th::tick(30);
     CHECK(th::visible_text("mensaje directo"));
 }
+
+APP_TEST(estado_del_mensaje_enviado)
+{
+    uint32_t id = 0;
+    app->on_send_text = [&](const std::string &, const std::string &) { id = app->last_sent_id(); };
+    app->open_chat("geo2");
+    app->send("geo2", "Voy bajando");
+    CHECK(id != 0);
+    CHECK(app->messages("geo2").back().status == "Enviado");
+    app->set_message_status(id, "Entregado");
+    CHECK(app->messages("geo2").back().status == "Entregado");
+    app->show(ScreenId::Messages);
+    th::tick(30);
+    CHECK(th::visible_text("Entregado"));
+    app->set_message_status(id + 99, "No enviado"); // otro id: no toca nada
+    CHECK(app->messages("geo2").back().status == "Entregado");
+}
+
+APP_TEST(puntos_se_recuperan_de_la_sd)
+{
+    Waypoint w = app->draft_point();
+    w.name = "Toma <A&B>";
+    w.note = "Muestra 3";
+    app->add_waypoint(w);
+    size_t n = app->waypoints().size();
+    CHECK(n >= 1);
+    CHECK(rec.fs.count(App::WAYPOINTS_FILE) == 1);
+    app->set_waypoints({});
+    CHECK(app->waypoints().empty());
+    CHECK(app->load_waypoints());
+    CHECK_EQ(app->waypoints().size(), n);
+    bool found = false;
+    for (auto &x : app->waypoints())
+        found |= x.name == "Toma <A&B>" && x.note == "Muestra 3";
+    CHECK(found);
+}

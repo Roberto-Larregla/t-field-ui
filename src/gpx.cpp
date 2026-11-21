@@ -138,6 +138,71 @@ uint32_t parse_iso8601(const char *s)
     return epoch_from_utc(y, mo, d, h, mi, (int)sec);
 }
 
+static std::string xml_unescape(const std::string &s)
+{
+    static const struct {
+        const char *ent, *ch;
+    } map[] = {{"&lt;", "<"}, {"&gt;", ">"}, {"&quot;", "\""}, {"&apos;", "'"}, {"&amp;", "&"}};
+    std::string o;
+    for (size_t i = 0; i < s.size();) {
+        bool done = false;
+        if (s[i] == '&')
+            for (auto &m : map)
+                if (s.compare(i, std::strlen(m.ent), m.ent) == 0) {
+                    o += m.ch, i += std::strlen(m.ent), done = true;
+                    break;
+                }
+        if (!done)
+            o += s[i++];
+    }
+    return o;
+}
+
+bool gpx_parse_waypoints(const std::string &g, std::vector<Waypoint> &out)
+{
+    out.clear();
+    size_t pos = 0;
+    while ((pos = g.find("<wpt", pos)) != std::string::npos) {
+        size_t tag_end = g.find('>', pos);
+        if (tag_end == std::string::npos)
+            break;
+        size_t close = g.find("</wpt>", tag_end);
+        if (close == std::string::npos)
+            close = g.size();
+        auto attr = [&](const char *key, double &v) {
+            size_t a = g.find(key, pos);
+            if (a == std::string::npos || a > tag_end)
+                return false;
+            a += std::strlen(key);
+            if (g[a] != '"' && g[a] != '\'')
+                return false;
+            v = std::strtod(g.c_str() + a + 1, nullptr);
+            return true;
+        };
+        auto text = [&](const char *open, const char *end) {
+            size_t a = g.find(open, tag_end);
+            if (a == std::string::npos || a > close)
+                return std::string();
+            a += std::strlen(open);
+            size_t b = g.find(end, a);
+            return b == std::string::npos || b > close ? std::string() : xml_unescape(g.substr(a, b - a));
+        };
+        Waypoint w;
+        if (attr(" lat=", w.lat) && attr(" lon=", w.lon) && w.lat >= -90 && w.lat <= 90 && w.lon >= -180 && w.lon <= 180) {
+            std::string ele = text("<ele>", "</ele>"), t = text("<time>", "</time>");
+            w.alt = (int32_t)std::strtol(ele.c_str(), nullptr, 10);
+            w.epoch = t.empty() ? 0 : parse_iso8601(t.c_str());
+            w.name = text("<name>", "</name>");
+            w.note = text("<desc>", "</desc>");
+            w.from = text("<src>", "</src>");
+            w.id = (uint32_t)out.size() + 1;
+            out.push_back(w);
+        }
+        pos = close == g.size() ? g.size() : close + 1;
+    }
+    return !out.empty();
+}
+
 bool gpx_parse_track(const std::string &g, std::vector<TrackPoint> &out)
 {
     out.clear();
@@ -327,6 +392,8 @@ std::string gpx_waypoints(const std::vector<Waypoint> &wps)
         o += "<name>" + xml_escape(w.name) + "</name>";
         if (!w.note.empty())
             o += "<desc>" + xml_escape(w.note) + "</desc>";
+        if (!w.from.empty()) // quién lo compartió
+            o += "<src>" + xml_escape(w.from) + "</src>";
         o += "</wpt>\n";
     }
     o += "</gpx>\n";

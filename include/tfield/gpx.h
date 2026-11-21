@@ -20,6 +20,8 @@ void gpx_track_point(std::string &out, const TrackPoint &p);
 std::string gpx_track_tail();
 // Lee los puntos de un GPX (los que escribe T-Field UI; tolera otros con <trkpt lat lon>)
 bool gpx_parse_track(const std::string &gpx, std::vector<TrackPoint> &out);
+// Lee los puntos (<wpt>) que escribe gpx_waypoints; los ids se numeran desde 1
+bool gpx_parse_waypoints(const std::string &gpx, std::vector<Waypoint> &out);
 // Cambia nombre y nota sin tocar los puntos; false si no tiene la forma esperada
 bool gpx_rename(std::string &gpx, const std::string &name, const std::string &note);
 uint32_t parse_iso8601(const char *s); // "2026-11-20T17:32:00Z" → epoch (0 si no se entiende)

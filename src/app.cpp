@@ -17,6 +17,13 @@ using namespace ui;
 
 void App::init()
 {
+#if LV_USE_THEME_DEFAULT
+    // tema base claro (los colores los pone cada pantalla): igual en el simulador y en
+    // el firmware, aunque su configuración de LVGL traiga el tema oscuro
+    if (lv_display_t *d = lv_display_get_default())
+        lv_display_set_theme(d, lv_theme_default_init(d, lv_palette_main(LV_PALETTE_BLUE),
+                                                      lv_palette_main(LV_PALETTE_RED), false, LV_FONT_DEFAULT));
+#endif
     home.create(this);
     messages_screen.create(this);
     quick_screen.create(this);
@@ -819,10 +826,24 @@ Waypoint App::draft_point() const
 bool App::export_waypoints()
 {
     map_screen.set_waypoints(waypoints_);
-    if (on_save_file && !on_save_file(tr("/tfield/puntos.gpx"), gpx_waypoints(waypoints_))) {
+    if (on_save_file && !on_save_file(WAYPOINTS_FILE, gpx_waypoints(waypoints_))) {
         map_screen.toast(tr("No se pudo escribir en la tarjeta SD: puntos sin guardar"));
         return false;
     }
+    return true;
+}
+
+bool App::load_waypoints()
+{
+    std::string gpx;
+    std::vector<Waypoint> w;
+    if (!on_read_file || !on_read_file(WAYPOINTS_FILE, gpx) || !gpx_parse_waypoints(gpx, w))
+        return false;
+    for (auto &x : w)
+        if (x.epoch)
+            x.time = local_hhmm(x.epoch);
+    waypoints_ = w;
+    map_screen.set_waypoints(waypoints_);
     return true;
 }
 
@@ -1332,9 +1353,27 @@ void App::send(const std::string &chat_id, const std::string &text)
     m.time = now_hhmm();
     m.text = text;
     m.status = "Enviado"; // se traduce al dibujar
+    m.id = ++next_msg_id_;
     add_message(chat_id, m);
     if (on_send_text)
         on_send_text(chat_id, text);
+}
+
+void App::set_message_status(uint32_t id, const char *status)
+{
+    if (!id)
+        return;
+    for (auto &kv : messages_)
+        for (auto &m : kv.second)
+            if (m.id == id && m.mine) {
+                if (m.status == status)
+                    return;
+                m.status = status;
+                msg_rev_[kv.first]++;
+                if (messages_screen.current == kv.first)
+                    messages_screen.refresh_conversation(false);
+                return;
+            }
 }
 
 void App::save_quick(const QuickReplies &q)

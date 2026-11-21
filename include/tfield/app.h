@@ -327,6 +327,8 @@ class App {
     bool recover_track(const std::string &csv);
     bool take_recovered(); // el mapa pregunta qué hacer con ella (una vez)
     static constexpr const char *TRACK_BACKUP = "/tfield/rutas/_en_curso.csv";
+    static constexpr const char *WAYPOINTS_FILE = "/tfield/puntos.gpx";
+    bool load_waypoints(); // al arrancar: los puntos guardados en la SD
 
     // Ajustes
     const Settings &settings() const { return settings_; }
@@ -350,6 +352,10 @@ class App {
 
     // Acciones desde la interfaz
     void send(const std::string &chat_id, const std::string &text);
+    // El último mensaje enviado (dentro de on_send_text: el que se está enviando)
+    uint32_t last_sent_id() const { return next_msg_id_; }
+    // "Entregado", "Sin confirmar", "No enviado"… (se traduce al dibujar)
+    void set_message_status(uint32_t id, const char *status);
     void save_quick(const QuickReplies &q);
     void open_chat(const std::string &chat_id);
     // Borrar: un canal queda vacío; un chat directo desaparece (vuelve al escribirle desde
@@ -476,6 +482,7 @@ class App {
     std::map<std::string, uint32_t> msg_rev_;   // cambia con cada mensaje nuevo o editado
     std::map<std::string, uint32_t> msg_added_; // cuenta solo los agregados al final
     uint32_t last_purge_ = 0;
+    uint32_t next_msg_id_ = 0;
     void forget_chat(const std::string &chat_id, bool remove);
     Position position_;
     std::vector<Waypoint> waypoints_;
