@@ -19,10 +19,10 @@ jobs:
       - name: Pruebas
         env:
           TFIELD_SIN_TIEMPOS: "1" # los tiempos se informan, pero no fallan (el servidor es compartido)
-        run: ./build/campo_tests
+        run: ./build/tfield_tests
 
       - name: Pruebas con detectores de memoria (ASan/UBSan)
         run: |
           cmake -B build-checks -S . -DTFIELD_CHECKS=ON
           cmake --build build-checks -j 4
-          ./build-checks/campo_tests
+          ./build-checks/tfield_tests
