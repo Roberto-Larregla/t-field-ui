@@ -23,7 +23,7 @@ Interfaz de terreno para la **LILYGO T-Deck Plus** con **Meshtastic**: mensajes,
 - **SOS:** por el canal y directo a cada miembro, mostrando quién lo recibió.
 - **Ajustes:** pantalla (brillo, tema e idioma), GPS, avisos, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio.
 - **Modo oscuro:** no encandila de noche y atenúa el mapa base. En la pantalla IPS de la T-Deck no ahorra batería: eso lo hace el brillo.
-- **Teclado y bola:** todo se puede usar sin tocar la pantalla. *Borrar* vuelve atrás y *Shift+$* pone tildes.
+- **Teclado y bola:** todo se puede usar sin tocar la pantalla.
 
 ## Probarlo en el computador
 

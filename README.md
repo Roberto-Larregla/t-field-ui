@@ -25,7 +25,7 @@ The interface comes in **Spanish and English**, with a **light, dark or automati
 - **SOS:** sent on the channel and directly to each teammate, showing who received it.
 - **Settings:** display (brightness, theme, language), GPS, alerts, messages, map, a private channel with encrypted invitations, SOS, node and time, and radio.
 - **Dark mode:** no glare at night, with the base map dimmed. On the T-Deck's IPS screen it doesn't save battery: the backlight does that.
-- **Keyboard and trackball:** everything works without touching the screen. *Backspace* goes back and *Shift+$* adds accents.
+- **Keyboard and trackball:** everything works without touching the screen.
 
 ## Try it on a computer
 
