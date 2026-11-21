@@ -8,7 +8,7 @@
 
 [![Pruebas](https://github.com/Roberto-Larregla/t-field-ui/actions/workflows/pruebas.yml/badge.svg)](https://github.com/Roberto-Larregla/t-field-ui/actions/workflows/pruebas.yml)
 
-Interfaz de terreno para la **LILYGO T-Deck Plus** con **Meshtastic**: mensajes, mapa con coordenadas UTM, rutas GPX, seguimiento del equipo y SOS, sin sensores externos. Está escrita en C++ con LVGL para integrarse en [`meshtastic/device-ui`](https://github.com/meshtastic/device-ui), a tamaño real (320 × 240 px), en **español o inglés** y con tema **claro, oscuro o automático** (oscuro entre la puesta y la salida del sol).
+Interfaz de terreno para la **LILYGO T-Deck Plus** con **Meshtastic**: mensajes, mapa con coordenadas UTM, rutas GPX, seguimiento del equipo y SOS. Está escrita en C++ con LVGL para integrarse en [`meshtastic/device-ui`](https://github.com/meshtastic/device-ui), a tamaño real (320 × 240 px), en **español o inglés** y con tema **claro, oscuro o automático** (oscuro entre la puesta y la salida del sol).
 
 > **Estado:** en desarrollo. La interfaz completa funciona en el simulador y pasa las pruebas automáticas. Falta el adaptador que la conecta al firmware: ver el [plan de implementación](docs/plan-implementacion.md).
 
@@ -24,17 +24,6 @@ Interfaz de terreno para la **LILYGO T-Deck Plus** con **Meshtastic**: mensajes,
 - **Ajustes:** pantalla (brillo, tema e idioma), GPS, avisos, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio.
 - **Modo oscuro:** no encandila de noche y atenúa el mapa base. En la pantalla IPS de la T-Deck no ahorra batería: eso lo hace el brillo.
 - **Teclado y bola:** todo se puede usar sin tocar la pantalla. *Borrar* vuelve atrás y *Shift+$* pone tildes.
-
-## Pensada para el equipo real
-
-Las pruebas usan los límites de la T-Deck Plus: ESP32-S3 a 240 MHz, 8 MB de PSRAM, pantalla por SPI, teclado sin tecla mantenida, bola de navegación, hasta 250 nodos, tarjeta SD que puede fallar y batería que se acaba. Por eso:
-
-- solo se redibuja lo que cambia;
-- la memoria tiene topes;
-- las rutas guardadas quedan en la tarjeta (carpeta `/tfield/`);
-- la ruta en curso se respalda cada minuto.
-
-El detalle está en la sección 11 del [plan](docs/plan-implementacion.md).
 
 ## Probarlo en el computador
 
@@ -87,7 +76,7 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
 ## Créditos
 
 - **Autor:** Roberto Larregla.
-- Desarrollado con la ayuda de **Claude** (Anthropic), que aparece como coautor en los commits.
+- Desarrollado con la ayuda de **Claude**.
 - [LVGL](https://lvgl.io) (MIT) y [Meshtastic](https://meshtastic.org) (GPL-3.0).
 - Fuente [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), del Braille Institute (SIL Open Font License 1.1, ver `fonts/OFL.txt`).
 - El mapa del simulador lo genera el propio código: no son datos reales.
