@@ -50,11 +50,15 @@ jobs:
           path: |
             ~/.platformio
             ~/.cache/pip
-          key: pio-${{ env.FIRMWARE_REF }}
+          key: pio-${{ env.FIRMWARE_REF }}-${{ hashFiles('t-field-ui/.github/workflows/firmware.yml') }}
 
       - name: Build t-deck-tft
         run: |
           pip install -q -r firmware/.github/actions/setup-base/requirements.txt # the PlatformIO version Meshtastic uses
+          # The ESP32 platform builds in two passes; the second one runs the PlatformIO of its own
+          # environment, and pioarduino 6.2.0.post1 there rejects the platform (">=6.2.0").
+          python -m venv ~/.platformio/penv
+          ~/.platformio/penv/bin/pip install -q "pioarduino==6.2.0"
           cd firmware
           pio run -e t-deck-tft
 
