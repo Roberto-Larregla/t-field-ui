@@ -54,7 +54,7 @@ jobs:
 
       - name: Build t-deck-tft
         run: |
-          pip install -q platformio
+          pip install -q -r firmware/.github/actions/setup-base/requirements.txt # the PlatformIO version Meshtastic uses
           cd firmware
           pio run -e t-deck-tft
 
