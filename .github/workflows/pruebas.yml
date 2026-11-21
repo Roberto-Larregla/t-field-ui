@@ -1,0 +1,28 @@
+# Compila y corre las pruebas en cada cambio que se sube a GitHub
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j 4
+
+      - name: Pruebas
+        env:
+          TFIELD_SIN_TIEMPOS: "1" # los tiempos se informan, pero no fallan (el servidor es compartido)
+        run: ./build/campo_tests
+
+      - name: Pruebas con detectores de memoria (ASan/UBSan)
+        run: |
+          cmake -B build-checks -S . -DTFIELD_CHECKS=ON
+          cmake --build build-checks -j 4
+          ./build-checks/campo_tests

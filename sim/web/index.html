@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T-Field UI · simulador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: herramienta de taller, sobria y precisa
+   IDEA: el propio equipo sobre la mesa de trabajo
+   PICTURE: la T-Deck con su pantalla real, grande y nítida
+   COLOUR and TYPE: carcasa grafito, fondo de mesa claro, azul de Mensajes como acento; Atkinson Hyperlegible
+   LAYOUT: equipo arriba y al centro, controles y atajos debajo */
+:root{color-scheme:light dark;--bg:light-dark(#e9eef1,#0f1418);--ink:light-dark(#10212b,#e6edf2);--ink2:light-dark(#4a5a66,#a6b4be);--line:light-dark(#c9d3da,#2c3740);--body:#1c2329;--accent:#1f63b5}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif;overflow-x:clip}
+main{max-width:1100px;margin:0 auto;padding:clamp(20px,4vw,48px) max(4vw,14px);display:flex;flex-direction:column;align-items:center;gap:22px}
+h1{font-size:clamp(26px,4vw,38px);line-height:1.05;margin:0;text-wrap:balance;text-align:center}
+.sub{margin:6px 0 0;color:var(--ink2);text-align:center;font-size:15px}
+.device{background:var(--body);border-radius:26px;padding:18px 18px 22px;box-shadow:0 1px 0 #3a444c inset,0 18px 40px rgba(0,0,0,.28);display:flex;flex-direction:column;align-items:center;gap:12px;max-width:100%}
+.bezel{background:#06090b;border-radius:8px;padding:8px;max-width:100%}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;outline:none;background:#fff;max-width:100%}
+canvas:focus-visible{box-shadow:0 0 0 3px var(--accent)}
+.brand{color:#7d8b95;font-size:13px;letter-spacing:.02em}
+.bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.bar span{color:var(--ink2);font-size:15px;margin-right:4px}
+button{font:inherit;font-size:16px;font-weight:700;min-height:44px;min-width:56px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:light-dark(#fff,#1a2228);color:var(--ink);cursor:pointer}
+button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 22px;width:min(760px,100%);margin:0;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:light-dark(#fff,#151c21)}
+.keys div{display:flex;gap:10px;align-items:baseline;font-size:15px}
+kbd{font:700 13px/1 "Atkinson Hyperlegible",system-ui,sans-serif;padding:4px 7px;border-radius:5px;border:1px solid var(--line);border-bottom-width:2px;white-space:nowrap;background:light-dark(#f4f7f9,#1f2830)}
+.note{color:var(--ink2);font-size:14px;text-align:center;margin:0}
+#status{color:var(--ink2);font-size:15px;min-height:1.5em}
+#alert{font-size:15px;min-height:1.5em;margin:0;color:var(--ink2);text-align:center;text-wrap:balance}
+#alert b{color:var(--ink)}
+#alert.on b{color:var(--accent)}
+details{width:min(760px,100%);border:1px solid var(--line);border-radius:12px;background:light-dark(#fff,#151c21);padding:12px 16px}
+summary{cursor:pointer;font-size:15px}
+.gpxbar{display:flex;gap:12px;align-items:center;margin-top:10px;color:var(--ink2);font-size:14px}
+pre{max-height:260px;overflow:auto;font-size:12px;line-height:1.4;background:light-dark(#f4f7f9,#0f1418);padding:10px;border-radius:8px;margin:10px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>T-Field UI: la interfaz de la T-Deck, desde el código real</h1>
+    <p class="sub">El mismo código LVGL que irá al equipo, compilado para el navegador · pantalla de 320 × 240 px</p>
+  </header>
+
+  <div class="device">
+    <div class="bezel"><canvas id="screen" width="320" height="240" tabindex="0" aria-label="Pantalla de la T-Deck. Toca o usa el teclado."></canvas></div>
+    <div class="brand">T-DECK PLUS · simulación</div>
+  </div>
+  <p id="status">Cargando…</p>
+  <p id="alert" aria-live="polite"></p>
+
+  <div class="bar" role="group" aria-label="Escala de la pantalla">
+    <span>Escala</span>
+    <button type="button" data-scale="1">1×</button>
+    <button type="button" data-scale="2">2×</button>
+    <button type="button" data-scale="3">3×</button>
+  </div>
+
+  <section class="keys" aria-label="Teclado">
+    <div><kbd>Tab</kbd> <kbd>↓</kbd> siguiente elemento</div>
+    <div><kbd>Mayús+Tab</kbd> <kbd>↑</kbd> anterior</div>
+    <div><kbd>Enter</kbd> elegir · enviar</div>
+    <div><kbd>Esc</kbd> volver · en la T-Deck, <kbd>Borrar</kbd> fuera de un texto</div>
+    <div><kbd>1</kbd>–<kbd>4</kbd> pestañas en el inicio</div>
+    <div><kbd>a…z</kbd> escribir (en Mensajes va directo al texto)</div>
+    <div><kbd>Enter</kbd> sobre el mapa: tomarlo y moverlo con <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> (<kbd>Enter</kbd> lo suelta)</div>
+    <div><kbd>+</kbd> <kbd>−</kbd> zoom del mapa · arrastrar para moverlo</div>
+    <div><kbd>Esc</kbd> en un diálogo: cerrar sin borrar nada</div>
+    <div>Regla: botón bajo el zoom, luego toca dos puntos (o <kbd>Enter</kbd> en la cruz)</div>
+    <div>SOS: mantén presionado 2 s; para cancelar, otros 2 s</div>
+    <div><kbd>←</kbd><kbd>→</kbd> en Ajustes: cambiar la opción elegida</div>
+  </section>
+  <details id="gpxbox" hidden>
+    <summary>Último archivo guardado en la tarjeta SD (simulada): <b id="gpxname"></b></summary>
+    <div class="gpxbar"><button type="button" id="gpxcopy">Copiar</button><span id="gpxmsg"></span></div>
+    <pre id="gpxtext"></pre>
+  </details>
+  <p class="note">Datos de ejemplo; en el equipo los llena el firmware de Meshtastic. Lo que llega de la red: a los 25 s GEO2 comparte un punto, a los 40 s MNT4 (fuera del equipo) comparte otro, a los 55 s alguien escribe en LongFast y a los 70 s escribe GEO2. Los avisos con sonido aparecen bajo la pantalla. Haz clic en la pantalla para usar el teclado.</p>
+</main>
+
+<script>
+{
+  const cv = document.getElementById('screen');
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(320, 240);
+  const statusEl = document.getElementById('status');
+  const scaleBtns = [...document.querySelectorAll('[data-scale]')];
+
+  function setScale(s) {
+    cv.style.width = (320 * s) + 'px';
+    cv.style.height = (240 * s) + 'px';
+    scaleBtns.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.scale) === s)));
+    try { localStorage.setItem('tdeck-scale', String(s)); } catch (e) {}
+  }
+  let start = 2;
+  try { start = Number(localStorage.getItem('tdeck-scale')) || 2; } catch (e) {}
+  const fit = Math.max(1, Math.floor((document.documentElement.clientWidth - 80) / 320));
+  setScale(Math.min(start, fit));
+  scaleBtns.forEach(b => b.addEventListener('click', () => setScale(Number(b.dataset.scale))));
+
+  window.Module = {
+    print: () => {},
+    printErr: () => {},
+    onRuntimeInitialized() {
+      const M = window.Module;
+      statusEl.textContent = 'Lista. Toca la pantalla o usa el teclado.';
+      const pos = e => {
+        const r = cv.getBoundingClientRect();
+        return [Math.max(0, Math.min(319, Math.floor((e.clientX - r.left) * 320 / r.width))),
+                Math.max(0, Math.min(239, Math.floor((e.clientY - r.top) * 240 / r.height)))];
+      };
+      let down = false;
+      cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); cv.focus(); const [x, y] = pos(e); M._sim_pointer(x, y, 1); });
+      cv.addEventListener('pointermove', e => { const [x, y] = pos(e); M._sim_pointer(x, y, down ? 1 : 0); });
+      const up = e => { down = false; const [x, y] = pos(e); M._sim_pointer(x, y, 0); };
+      cv.addEventListener('pointerup', up);
+      cv.addEventListener('pointercancel', up);
+
+      const named = { Tab: 9, ArrowDown: 18, ArrowUp: 17, ArrowLeft: 20, ArrowRight: 19, Enter: 13, Escape: 27, Backspace: 8, Delete: 127, Home: 2, End: 3 };
+      cv.addEventListener('keydown', e => {
+        let code = null;
+        if (e.key === 'Tab' && e.shiftKey) code = 11;
+        else if (e.key in named) code = named[e.key];
+        else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) code = e.key.codePointAt(0);
+        if (code !== null) { e.preventDefault(); M._sim_key(code); }
+      });
+
+      const box = document.getElementById('gpxbox'), gname = document.getElementById('gpxname'), gtext = document.getElementById('gpxtext'), gmsg = document.getElementById('gpxmsg');
+      let lastFile = '';
+      setInterval(() => {
+        const f = M.UTF8ToString(M._sim_last_file());
+        if (f && f !== lastFile) {
+          lastFile = f;
+          const nl = f.indexOf('\n');
+          gname.textContent = f.slice(0, nl);
+          gtext.textContent = f.slice(nl + 1);
+          box.hidden = false;
+          gmsg.textContent = '';
+        }
+      }, 700);
+      document.getElementById('gpxcopy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(gtext.textContent); gmsg.textContent = 'Copiado. Pégalo en un archivo .gpx para abrirlo en QGIS.'; }
+        catch (e) { gmsg.textContent = 'No se pudo copiar; selecciona el texto a mano.'; }
+      });
+
+      // avisos con sonido: un tono corto (dos para SOS) y el texto bajo la pantalla
+      const alertEl = document.getElementById('alert');
+      let actx = null, alertTimer = 0;
+      const unlock = () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} };
+      cv.addEventListener('pointerdown', unlock);
+      cv.addEventListener('keydown', unlock);
+      const beep = (vol, kind) => {
+        if (!actx || vol <= 0) return;
+        const tones = kind === 'sos' ? [988, 740, 988, 740] : kind === 'punto' ? [660, 880] : [880];
+        tones.forEach((f, i) => {
+          const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + i * 0.16;
+          o.frequency.value = f; o.type = 'sine';
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.25 * vol / 100, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+          o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.15);
+        });
+      };
+      const kinds = { mensaje: 'Mensaje', punto: 'Punto', sos: 'SOS', prueba: 'Prueba' };
+      setInterval(() => {
+        const a = M.UTF8ToString(M._sim_alert());
+        if (!a) return;
+        const [vol, kind, ...rest] = a.split('|');
+        beep(Number(vol), kind);
+        alertEl.innerHTML = '';
+        const b = document.createElement('b');
+        b.textContent = 'Sonó un aviso (' + kinds[kind] + ', volumen ' + vol + ' %): ';
+        alertEl.append(b, document.createTextNode(rest.join('|')));
+        alertEl.classList.add('on');
+        clearTimeout(alertTimer);
+        alertTimer = setTimeout(() => alertEl.classList.remove('on'), 4000);
+      }, 200);
+
+      let last = performance.now();
+      const frame = now => {
+        const dt = Math.min(100, Math.max(1, Math.round(now - last)));
+        last = now;
+        M._sim_tick(dt);
+        if (M._sim_dirty()) {
+          const p = M._sim_fb();
+          img.data.set(M.HEAPU8.subarray(p, p + 320 * 240 * 4));
+          ctx.putImageData(img, 0, 0);
+        }
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    },
+    onAbort(what) { statusEl.textContent = 'No se pudo iniciar el simulador: ' + what; }
+  };
+}
+</script>
+<script src="tfield_web.js"></script>
+</body>
+</html>
