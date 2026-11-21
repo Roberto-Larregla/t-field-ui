@@ -201,7 +201,7 @@ static void heavy_day()
         for (int k = 0; k < 70; k++) {
             m.from = c < 4 ? "GEO2" : "N" + std::to_string(c);
             m.text = "Mensaje de prueba con un largo parecido a uno real en terreno, n\xC3\xBAmero " + std::to_string(k);
-            app->add_message(c == 0 ? std::string("geo2") : "node:" + std::to_string(1000 + c), m, false);
+            app->add_message(c == 0 ? std::string("geo2") : "node:" + std::to_string(1000 + c), m);
         }
     std::vector<Waypoint> wps; // 300 puntos de una campaña
     for (uint32_t i = 1; i <= 300; i++) {
@@ -525,7 +525,7 @@ APP_TEST(hw_mensajes_incrementales)
     m.time = "14:00";
     for (int k = 0; k < 40; k++) {
         m.text = "Mensaje " + std::to_string(k);
-        app->add_message("geo2", m, false);
+        app->add_message("geo2", m);
     }
     app->open_direct_chat(2);
     th::tick(100);
@@ -553,7 +553,7 @@ APP_TEST(hw_mensajes_incrementales)
     for (int c = 0; c < 20; c++)
         for (int k = 0; k < 40; k++) {
             m.text = "x";
-            app->add_message("node:" + std::to_string(2000 + c), m, false);
+            app->add_message("node:" + std::to_string(2000 + c), m);
         }
     size_t total = 0;
     for (auto &ch : app->chats())

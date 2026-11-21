@@ -24,7 +24,7 @@ La interfaz está en **español e inglés**, con tema **claro, oscuro o automát
 - **Mapa:** mapa base desde la tarjeta SD o cuadrícula UTM; puntos (P1, P2…), rutas grabadas en GPX (R1, R2…), regla, destino y rastro de cada compañero.
 - **Equipo:** «Mi equipo» y toda la red; ficha de cada nodo, pedir posiciones a todos y ruta de señal.
 - **SOS:** por el canal y directo a cada miembro, mostrando quién lo recibió.
-- **Ajustes:** pantalla (brillo, tema e idioma), GPS, avisos, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio.
+- **Ajustes:** pantalla (brillo, tema e idioma), GPS, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio.
 - **Modo oscuro:** no encandila de noche y atenúa el mapa base. En la pantalla IPS de la T-Deck no ahorra batería: eso lo hace el brillo.
 - **Teclado y bola:** todo se puede usar sin tocar la pantalla.
 
@@ -114,7 +114,7 @@ Ajustes es la cuarta pestaña del inicio (o la tecla `4`).
 
 ## Limitaciones conocidas
 
-- **Sonido:** los avisos de mensajes usan la configuración de notificaciones de Meshtastic (se ajusta en la app de Meshtastic). El volumen y las opciones «sonido para mi equipo / otros / puntos» de T-Field UI todavía no cambian el sonido.
+- **Sonido:** T-Field UI no tiene sonidos propios. Si la *Notificación externa* de Meshtastic está activada (se ajusta en la app de Meshtastic), cada mensaje de texto que llega suena con el tono de Meshtastic, lo mande quien lo mande. Los puntos compartidos no suenan.
 - **Canal privado y puntos compartidos:** los botones «Unirse» y «Ver en el mapa» funcionan entre equipos con T-Field UI. Las otras apps de Meshtastic reciben los puntos como waypoints estándar.
 - **Grabar una ruta** le pide al GPS una posición cada pocos segundos mientras graba, lo que gasta más batería; al detenerla vuelve el intervalo anterior.
 

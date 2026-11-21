@@ -45,11 +45,6 @@ struct Settings {
     uint16_t pos_every_s = 900; // envío de posición a la red
     bool pos_smart = true;      // enviar antes si me muevo
     uint8_t track_every_s = 10; // punto de ruta al grabar
-    // Avisos (sonido)
-    uint8_t volume = 60; // 0 = silencio (el SOS suena igual)
-    bool snd_team = true;
-    bool snd_others = false;
-    bool snd_points = true;
     // Mensajes
     bool team_first = true;
     // Mapa y puntos

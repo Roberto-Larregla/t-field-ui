@@ -158,11 +158,11 @@ int main(int argc, char **argv)
     app.show(tfield::ScreenId::Home);
     app.show(tfield::ScreenId::Settings);
     render(out + "/ajustes.raw");
-    const char *names[] = {"pantalla", "gps", "avisos", "mensajes", "mapa", "canal", "sos", "nodo", "radio"};
-    for (int i = 0; i < 9; i++) {
+    const char *names[] = {"pantalla", "gps", "mensajes", "mapa", "canal", "sos", "nodo", "radio"};
+    for (int i = 0; i < tfield::SettingsScreen::S_COUNT; i++) {
         app.show_settings_section(i);
         render(out + "/ajustes_" + names[i] + ".raw");
-        if (i == 5) { // la última fila enfocada: la página se desplaza hasta ella
+        if (i == tfield::SettingsScreen::S_CHANNEL) { // la última fila enfocada: la página se desplaza hasta ella
             lv_group_t *g = app.settings_screen.group;
             lv_obj_t *last = lv_group_get_obj_by_index(g, lv_group_get_obj_count(g) - 1);
             lv_group_focus_obj(last);

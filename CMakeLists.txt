@@ -50,7 +50,7 @@ if(EMSCRIPTEN)
   target_link_libraries(tfield_web tfield)
   set_target_properties(tfield_web PROPERTIES SUFFIX ".js")
   target_link_options(tfield_web PRIVATE
-    "-sEXPORTED_FUNCTIONS=['_main','_sim_fb','_sim_dirty','_sim_pointer','_sim_key','_sim_tick','_sim_last_file','_sim_alert']"
+    "-sEXPORTED_FUNCTIONS=['_main','_sim_fb','_sim_dirty','_sim_pointer','_sim_key','_sim_tick','_sim_last_file']"
     "-sEXPORTED_RUNTIME_METHODS=['cwrap','UTF8ToString']"
     "-sALLOW_MEMORY_GROWTH=1" "-sINITIAL_MEMORY=33554432" "-sENVIRONMENT=web"
     "-sWASM=0" "-sSINGLE_FILE=1" "-sEXIT_RUNTIME=0" "-sDYNAMIC_EXECUTION=0")

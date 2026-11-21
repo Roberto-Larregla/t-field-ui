@@ -118,10 +118,10 @@ APP_TEST(borrado_automatico_por_dias)
     m.time = "10:00";
     m.text = "Mensaje de hace dos d\xC3\xAD" "as";
     m.epoch = now - 2 * 86400;
-    app->add_message("node:3", m, false); // VEH1: un chat directo con solo eso
+    app->add_message("node:3", m); // VEH1: un chat directo con solo eso
     m.text = "Mensaje de hoy";
     m.epoch = now - 3600;
-    app->add_message("node:7", m, false);
+    app->add_message("node:7", m);
     std::string old_id = "node:3";
     for (auto &c : app->chats())
         if (c.name == "VEH1")

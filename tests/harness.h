@@ -103,7 +103,6 @@ struct Log {
     std::map<std::string, std::string> fs; // contenido de la tarjeta SD simulada
     std::vector<std::string> cleared;      // chats borrados ("id|1" si desapareció)
     std::vector<std::string> deleted;
-    std::vector<std::string> alerts; // "tipo|texto"
     std::vector<uint32_t> invites, pos_requests;
     std::vector<std::string> channel_sets;
     int settings_saved = 0;

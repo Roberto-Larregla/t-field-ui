@@ -271,8 +271,8 @@ void MessagesScreen::restyle_rows()
         if (ch.unread) {
             snprintf(buf, sizeof(buf), "%u", ch.unread);
             set_text(r.badge_lbl, buf);
-            // fuera del equipo y sin sonido: insignia gris (llegó, pero no avisó)
-            uint32_t bc = app_->chat_muted(ch) ? col::MUTED : col::BLUE;
+            // fuera del equipo: insignia gris
+            uint32_t bc = app_->chat_outside_team(ch) ? col::MUTED : col::BLUE;
             set_bg(r.badge, on ? col::SURF : bc);
             set_color(r.badge_lbl, on ? bc : col::SURF);
             show(r.badge, true);

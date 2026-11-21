@@ -34,9 +34,6 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 kbd{font:700 13px/1 "Atkinson Hyperlegible",system-ui,sans-serif;padding:4px 7px;border-radius:5px;border:1px solid var(--line);border-bottom-width:2px;white-space:nowrap;background:light-dark(#f4f7f9,#1f2830)}
 .note{color:var(--ink2);font-size:14px;text-align:center;margin:0}
 #status{color:var(--ink2);font-size:15px;min-height:1.5em}
-#alert{font-size:15px;min-height:1.5em;margin:0;color:var(--ink2);text-align:center;text-wrap:balance}
-#alert b{color:var(--ink)}
-#alert.on b{color:var(--accent)}
 details{width:min(760px,100%);border:1px solid var(--line);border-radius:12px;background:light-dark(#fff,#151c21);padding:12px 16px}
 summary{cursor:pointer;font-size:15px}
 .gpxbar{display:flex;gap:12px;align-items:center;margin-top:10px;color:var(--ink2);font-size:14px}
@@ -55,7 +52,6 @@ pre{max-height:260px;overflow:auto;font-size:12px;line-height:1.4;background:lig
     <div class="brand">T-DECK PLUS · simulación</div>
   </div>
   <p id="status">Cargando…</p>
-  <p id="alert" aria-live="polite"></p>
 
   <div class="bar" role="group" aria-label="Escala de la pantalla">
     <span>Escala</span>
@@ -83,7 +79,7 @@ pre{max-height:260px;overflow:auto;font-size:12px;line-height:1.4;background:lig
     <div class="gpxbar"><button type="button" id="gpxcopy">Copiar</button><span id="gpxmsg"></span></div>
     <pre id="gpxtext"></pre>
   </details>
-  <p class="note">Datos de ejemplo; en el equipo los llena el firmware de Meshtastic. Lo que llega de la red: a los 25 s GEO2 comparte un punto, a los 40 s MNT4 (fuera del equipo) comparte otro, a los 55 s alguien escribe en LongFast y a los 70 s escribe GEO2. Los avisos con sonido aparecen bajo la pantalla. Haz clic en la pantalla para usar el teclado.</p>
+  <p class="note">Datos de ejemplo; en el equipo los llena el firmware de Meshtastic. Lo que llega de la red: a los 25 s GEO2 comparte un punto, a los 40 s MNT4 (fuera del equipo) comparte otro, a los 55 s alguien escribe en LongFast y a los 70 s escribe GEO2. Haz clic en la pantalla para usar el teclado.</p>
 </main>
 
 <script>
@@ -150,39 +146,6 @@ pre{max-height:260px;overflow:auto;font-size:12px;line-height:1.4;background:lig
         try { await navigator.clipboard.writeText(gtext.textContent); gmsg.textContent = 'Copiado. Pégalo en un archivo .gpx para abrirlo en QGIS.'; }
         catch (e) { gmsg.textContent = 'No se pudo copiar; selecciona el texto a mano.'; }
       });
-
-      // avisos con sonido: un tono corto (dos para SOS) y el texto bajo la pantalla
-      const alertEl = document.getElementById('alert');
-      let actx = null, alertTimer = 0;
-      const unlock = () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch (e) {} };
-      cv.addEventListener('pointerdown', unlock);
-      cv.addEventListener('keydown', unlock);
-      const beep = (vol, kind) => {
-        if (!actx || vol <= 0) return;
-        const tones = kind === 'sos' ? [988, 740, 988, 740] : kind === 'punto' ? [660, 880] : [880];
-        tones.forEach((f, i) => {
-          const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + i * 0.16;
-          o.frequency.value = f; o.type = 'sine';
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(0.25 * vol / 100, t + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
-          o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.15);
-        });
-      };
-      const kinds = { mensaje: 'Mensaje', punto: 'Punto', sos: 'SOS', prueba: 'Prueba' };
-      setInterval(() => {
-        const a = M.UTF8ToString(M._sim_alert());
-        if (!a) return;
-        const [vol, kind, ...rest] = a.split('|');
-        beep(Number(vol), kind);
-        alertEl.innerHTML = '';
-        const b = document.createElement('b');
-        b.textContent = 'Sonó un aviso (' + kinds[kind] + ', volumen ' + vol + ' %): ';
-        alertEl.append(b, document.createTextNode(rest.join('|')));
-        alertEl.classList.add('on');
-        clearTimeout(alertTimer);
-        alertTimer = setTimeout(() => alertEl.classList.remove('on'), 4000);
-      }, 200);
 
       let last = performance.now();
       const frame = now => {

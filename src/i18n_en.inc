@@ -243,7 +243,7 @@
 {"Chats de mi equipo primero", "My team's chats first"},
 {"Arriba en el inicio y en Mensajes", "On top in Home and Messages"},
 {"Editar", "Edit"},
-{"Los chats sin sonido (fuera de tu equipo) marcan sus mensajes nuevos con un n\xC3\xBAmero gris en vez de azul.", "Muted chats (outside your team) show new messages with a gray number instead of blue."},
+{"Los chats fuera de tu equipo marcan sus mensajes nuevos con un n\xC3\xBAmero gris en vez de azul.", "Chats outside your team show new messages with a gray number instead of blue."},
 {"Tambi\xC3\xA9n se cambia en el mapa, en el bot\xC3\xB3n de capas", "Also changes on the map, with the layers button"},
 {"Puntos de mi equipo", "Points from my team"},
 {"Se agregan solos a tus puntos", "Added to your points automatically"},

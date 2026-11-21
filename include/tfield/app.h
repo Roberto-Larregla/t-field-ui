@@ -26,8 +26,6 @@ struct View {
 // Tecla de tildes del teclado T-Deck (Shift+$), igual que en device-ui
 constexpr uint32_t KEY_DIACRITIC = 0x110;
 
-// Avisos con sonido (el adaptador toca el tono con el volumen de los ajustes)
-enum class Alert { Message, Point, Sos, Test };
 
 class App;
 
@@ -192,7 +190,7 @@ class TeamScreen {
 // --------------------------------------------------------------- Ajustes
 class SettingsScreen {
   public:
-    enum Section { S_SCREEN, S_GPS, S_ALERTS, S_MESSAGES, S_MAP, S_CHANNEL, S_SOS, S_NODE, S_RADIO, S_COUNT };
+    enum Section { S_SCREEN, S_GPS, S_MESSAGES, S_MAP, S_CHANNEL, S_SOS, S_NODE, S_RADIO, S_COUNT };
     void create(App *app);
     void show_home();
     void show_section(int s);
@@ -228,7 +226,6 @@ class SettingsScreen {
     void build_section(int s);
     void sec_screen();
     void sec_gps();
-    void sec_alerts();
     void sec_messages();
     void sec_map();
     void sec_channel();
@@ -282,12 +279,10 @@ class App {
     // se llama 2 s después del último cambio (o al salir de Ajustes), para no gastar la flash
     // con cada toque de "‹ ›". Meshtastic también escribe su configuración en flash.
     std::function<void(const Settings &)> on_settings;
-    // Aplicar ya, sin guardar (brillo, volumen: se ve o se oye al tocar)
+    // Aplicar ya, sin guardar (brillo: se ve al tocar)
     std::function<void(const Settings &)> on_settings_preview;
     // Agregar al final de un archivo (respaldo de la ruta en curso)
     std::function<bool(const std::string &path, const std::string &content)> on_append_file;
-    // Sonido de aviso
-    std::function<void(Alert, const std::string &what)> on_alert;
     // Se borró el historial de un chat (el adaptador borra lo que guarde). remove: el chat
     // directo desaparece de la lista; si no, es un canal que queda vacío.
     std::function<void(const std::string &chat_id, bool remove)> on_clear_chat;
@@ -311,7 +306,7 @@ class App {
     void set_team(const std::vector<TeamNode> &team);
     void set_chats(const std::vector<Chat> &chats);
     void set_messages(const std::string &chat_id, const std::vector<Message> &msgs);
-    void add_message(const std::string &chat_id, const Message &m, bool alert = true);
+    void add_message(const std::string &chat_id, const Message &m);
     void set_quick(const QuickReplies &q);
     void set_position(const Position &p);
     void set_waypoints(const std::vector<Waypoint> &w);
@@ -335,8 +330,7 @@ class App {
     void update_settings(const Settings &s); // aplica, refresca pantallas y llama a on_settings
     void show_settings_section(int section);
     bool is_team_chat(const Chat &ch) const;
-    bool chat_muted(const Chat &ch) const; // sin sonido por los ajustes (fuera del equipo)
-    void test_alert();
+    bool chat_outside_team(const Chat &ch) const; // sus mensajes nuevos se marcan en gris
     // Canal privado del equipo
     void create_channel();
     void rename_channel(const std::string &name);
@@ -471,7 +465,6 @@ class App {
     std::vector<TrackPoint> loaded_pts_;
     ChannelKey new_key();
     void sos_targets(std::vector<std::string> &chats, std::vector<uint32_t> &direct) const;
-    void alert_incoming(const Chat &ch, const Message &m);
     void go(const View &v, bool push, bool restoring);
     View snapshot() const;
     ScreenId current_ = ScreenId::Home;

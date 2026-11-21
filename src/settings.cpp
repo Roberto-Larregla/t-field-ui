@@ -178,10 +178,6 @@ std::string settings_to_text(const Settings &s)
     put("pos_every_s", s.pos_every_s);
     put("pos_smart", s.pos_smart);
     put("track_every_s", s.track_every_s);
-    put("volume", s.volume);
-    put("snd_team", s.snd_team);
-    put("snd_others", s.snd_others);
-    put("snd_points", s.snd_points);
     put("team_first", s.team_first);
     put("map_team_only", s.map_team_only);
     put("pts_team", (int)s.pts_team);
@@ -274,10 +270,6 @@ Settings settings_from_text(const std::string &text)
         else if (k == "pos_every_s") u16(s.pos_every_s, 30, 43200);
         else if (k == "pos_smart") flag(s.pos_smart);
         else if (k == "track_every_s") u8(s.track_every_s, 1, 255);
-        else if (k == "volume") u8(s.volume, 0, 100);
-        else if (k == "snd_team") flag(s.snd_team);
-        else if (k == "snd_others") flag(s.snd_others);
-        else if (k == "snd_points") flag(s.snd_points);
         else if (k == "team_first") flag(s.team_first);
         else if (k == "map_team_only") flag(s.map_team_only);
         else if (k == "pts_team") policy(s.pts_team);

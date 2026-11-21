@@ -340,31 +340,15 @@ APP_TEST(mensajes_no_saltan)
     CHECK_EQ((int)lv_obj_get_scroll_y(conv), 0);
 }
 
-// ---------------------------------------------------------------- avisos
-APP_TEST(avisos_sonido)
+// ------------------------------------------------- chats fuera del equipo
+APP_TEST(chats_fuera_del_equipo_en_gris)
 {
-    Message m;
-    m.time = "14:40";
-    m.from = "Q7XA";
-    m.text = "hola";
-    app->add_message("longfast", m);
-    CHECK(rec.alerts.empty()); // fuera del equipo: silencio
-    for (auto &c : app->chats())
+    for (auto &c : app->chats()) {
         if (c.id == "longfast")
-            CHECK(app->chat_muted(c));
-    m.from = "GEO2"; // alguien del equipo escribiendo en el canal público
-    app->add_message("longfast", m);
-    CHECK_EQ(rec.alerts.size(), (size_t)1);
-    Settings s = app->settings();
-    s.volume = 0;
-    app->update_settings(s);
-    app->add_message("geo2", m);
-    CHECK_EQ(rec.alerts.size(), (size_t)1);
-    m.from = "MNT4";
-    m.text = "SOS MNT4 19H 375000 6277000";
-    app->add_message("longfast", m); // un SOS suena siempre
-    CHECK_EQ(rec.alerts.size(), (size_t)2);
-    CHECK(rec.alerts.back().rfind("sos|", 0) == 0);
+            CHECK(app->chat_outside_team(c)); // canal público
+        if (c.id == "geo2")
+            CHECK(!app->chat_outside_team(c)); // compañero
+    }
 }
 
 // ---------------------------------------------------------------- equipo

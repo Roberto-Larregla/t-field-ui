@@ -190,8 +190,6 @@ TEST(ajustes_texto)
     s.screen_off_s = 0;
     s.kbd_light = false;
     s.pos_every_s = 120;
-    s.volume = 0;
-    s.snd_others = true;
     s.pts_others = PointPolicy::Ignore;
     s.sos_direct = false;
     s.sos_every_min = 5;
@@ -213,8 +211,6 @@ TEST(ajustes_texto)
     CHECK_EQ((int)r.screen_off_s, 0);
     CHECK_EQ(r.kbd_light, false);
     CHECK_EQ((int)r.pos_every_s, 120);
-    CHECK_EQ((int)r.volume, 0);
-    CHECK_EQ(r.snd_others, true);
     CHECK_EQ((int)r.pts_others, (int)PointPolicy::Ignore);
     CHECK_EQ(r.sos_direct, false);
     CHECK_EQ((int)r.sos_every_min, 5);
@@ -234,9 +230,8 @@ TEST(ajustes_texto)
     CHECK_EQ((int)r.hops, 5);
     // basura: no se cae y quedan los valores por defecto
     Settings d;
-    Settings g = settings_from_text("brightness=abc\n=\nsin_igual\nhops=99\nvolume=-5\nmember=x,y\nchannel_key=@@@\n\r\n");
+    Settings g = settings_from_text("brightness=abc\n=\nsin_igual\nhops=99\nbrightness=-5\nvolume=60\nmember=x,y\nchannel_key=@@@\n\r\n");
     CHECK_EQ((int)g.hops, (int)d.hops); // 99 está fuera de rango: queda el valor por defecto
-    CHECK_EQ((int)g.volume, (int)d.volume);
     CHECK_EQ((int)g.brightness, (int)d.brightness);
     CHECK(g.members.empty());
     Settings w = settings_from_text("brightness=70\r\nshort_name=GEO9\r\nchannel_on=1\r\n");

@@ -24,7 +24,7 @@ The interface comes in **English and Spanish**, with a **light, dark or automati
 - **Map:** base map tiles from the SD card or a UTM grid; waypoints (P1, P2…), recorded GPX tracks (R1, R2…), a ruler, a navigation target and each teammate's trail.
 - **Team:** "my team" and the whole mesh; a card for each node, request positions from everyone, and traceroute.
 - **SOS:** sent on the channel and directly to each teammate, showing who received it.
-- **Settings:** display (brightness, theme, language), GPS, alerts, messages, map, a private channel with encrypted invitations, SOS, node and time, and radio.
+- **Settings:** display (brightness, theme, language), GPS, messages, map, a private channel with encrypted invitations, SOS, node and time, and radio.
 - **Dark mode:** no glare at night, with the base map dimmed. On the T-Deck's IPS screen it doesn't save battery: the backlight does that.
 - **Keyboard and trackball:** everything works without touching the screen.
 
@@ -114,7 +114,7 @@ Settings is the fourth tab on the home screen (or the `4` key).
 
 ## Known limitations
 
-- **Sound:** message alerts use Meshtastic's notification settings (set them in the Meshtastic app). T-Field UI's own volume and "sound for my team / others / points" options do not change the sound yet.
+- **Sound:** T-Field UI has no sounds of its own. If Meshtastic's *External notification* is on (set it in the Meshtastic app), every incoming text message rings with Meshtastic's tone, whoever sends it. Shared waypoints don't ring.
 - **Private channel and shared waypoints:** the "Join" and "Show on map" buttons work between devices running T-Field UI. Other Meshtastic apps receive shared waypoints as standard waypoints.
 - **Track recording** asks the GPS for a fix every few seconds while it records, which uses more battery; the previous interval comes back when you stop.
 

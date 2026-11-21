@@ -20,9 +20,9 @@ static constexpr int32_t BODY_H = SCREEN_H - HEAD_H;
 static constexpr int32_t TILE_W = 100, TILE_H = 64;
 
 static const char *SECTION_NAMES[SettingsScreen::S_COUNT] = {
-    "Pantalla", "GPS y posici\xC3\xB3n", "Avisos", "Mensajes", "Mapa y puntos", "Canal privado", "SOS", "Nodo y hora", "Avanzado"};
+    "Pantalla", "GPS y posici\xC3\xB3n", "Mensajes", "Mapa y puntos", "Canal privado", "SOS", "Nodo y hora", "Avanzado"};
 // en la cuadrícula, nombres cortos (100 px por casilla)
-static const char *TILE_NAMES[SettingsScreen::S_COUNT] = {"Pantalla", "GPS", "Avisos", "Mensajes", "Mapa", "Canal", "SOS",
+static const char *TILE_NAMES[SettingsScreen::S_COUNT] = {"Pantalla", "GPS", "Mensajes", "Mapa", "Canal", "SOS",
                                                           "Nodo y hora", "Avanzado"};
 
 // ------------------------------------------------------------ ayudas
@@ -95,7 +95,7 @@ void SettingsScreen::create(App *app)
     esc_ = lv_obj_get_child(h, 0);
     title_ = lv_obj_get_child(h, 1);
 
-    // Cuadrícula 3 × 3: cada sección con dos líneas de su estado actual
+    // Cuadrícula de 3 columnas: cada sección con dos líneas de su estado actual
     grid_ = box(screen, 0, HEAD_H, SCREEN_W, BODY_H, col::BG);
     for (int i = 0; i < S_COUNT; i++) {
         int32_t x = 6 + (i % 3) * (TILE_W + 4), y = 5 + (i / 3) * (TILE_H + 5);
@@ -385,7 +385,6 @@ void SettingsScreen::build_section(int sec)
     switch (sec) {
     case S_SCREEN: sec_screen(); break;
     case S_GPS: sec_gps(); break;
-    case S_ALERTS: sec_alerts(); break;
     case S_MESSAGES: sec_messages(); break;
     case S_MAP: sec_map(); break;
     case S_CHANNEL: sec_channel(); break;
@@ -563,7 +562,6 @@ void SettingsScreen::refresh_tiles()
     };
     set(S_SCREEN, tr("Brillo ") + pct(s.brightness), s.screen_off_s ? tr("Se apaga: ") + secs_text(s.screen_off_s) : tr("Siempre encendida"));
     set(S_GPS, s.gps ? tr("Env\xC3\xADo: ") + secs_text(s.pos_every_s) : tr("GPS apagado"), tr("Ruta: cada ") + secs_text(s.track_every_s));
-    set(S_ALERTS, s.volume ? tr("Volumen ") + pct(s.volume) : tr("Silencio"), s.snd_others ? tr("Avisa todo") : tr("Solo mi equipo"));
     set(S_MESSAGES, s.team_first ? tr("Equipo arriba") : tr("Por actividad"), tr("4 resp. r\xC3\xA1pidas"));
     std::string others = policy_name(s.pts_others);
     others[0] = (char)std::tolower((unsigned char)others[0]);
@@ -584,7 +582,7 @@ void SettingsScreen::refresh_tiles()
                      lora_presets()[s.preset % lora_presets().size()].name,
         std::to_string(s.hops) + tr(" saltos"));
     // las secciones con opciones de equipo llevan su marca morada
-    for (int i : {(int)S_ALERTS, (int)S_MESSAGES, (int)S_MAP, (int)S_CHANNEL, (int)S_SOS})
+    for (int i : {(int)S_MESSAGES, (int)S_MAP, (int)S_CHANNEL, (int)S_SOS})
         if (lv_obj_get_child_count(tiles_[i]) == 3) {
             lv_obj_t *bar = box(tiles_[i], 0, 0, 3, TILE_H - 2, col::PURPLE);
             lv_obj_set_style_radius(bar, 0, 0);
@@ -666,37 +664,6 @@ void SettingsScreen::sec_gps()
     add(NOTE, tr("Tu posici\xC3\xB3n viaja con la precisi\xC3\xB3n completa a tu equipo. Enviarla m\xC3\xA1s seguido ocupa m\xC3\xA1s la red."));
 }
 
-void SettingsScreen::sec_alerts()
-{
-    Row &v = add(CHOICE, tr("Volumen"), tr("Sin sonido los mensajes igual llegan"));
-    v.text = [this] { return ST.volume ? pct(ST.volume) : std::string(tr("Silencio")); };
-    v.step = [this](int d, bool w) { EDIT(s.volume = pick<uint8_t>({0, 20, 40, 60, 80, 100}, s.volume, d, w)); };
-    Row &t = add(ACTION, tr("Probar sonido"), tr("Toca el aviso con el volumen elegido"));
-    t.text = [] { return std::string(tr("Probar")); };
-    t.act = [this] { app_->test_alert(); };
-    t.enabled = [this] { return ST.volume > 0; };
-    Row &a = add(TOGGLE, tr("Mensajes de mi equipo"), tr("Directos, el canal privado y lo que escriban"), true);
-    a.get = [this] { return ST.snd_team; };
-    a.set = [this](bool x) {
-        EDIT(s.snd_team = x);
-        return true;
-    };
-    Row &o = add(TOGGLE, tr("Mensajes de otros"), tr("Canales p\xC3\xBA" "blicos y nodos fuera de tu equipo"), true);
-    o.get = [this] { return ST.snd_others; };
-    o.set = [this](bool x) {
-        EDIT(s.snd_others = x);
-        return true;
-    };
-    Row &p = add(TOGGLE, tr("Puntos compartidos"), tr("Cuando te comparten un punto"));
-    p.get = [this] { return ST.snd_points; };
-    p.set = [this](bool x) {
-        EDIT(s.snd_points = x);
-        return true;
-    };
-    Row &s = add(STATIC, tr("SOS de otros nodos"), tr("No se puede silenciar"));
-    s.text = [] { return std::string(tr("Siempre")); };
-}
-
 void SettingsScreen::sec_messages()
 {
     Row &f = add(TOGGLE, tr("Chats de mi equipo primero"), tr("Arriba en el inicio y en Mensajes"), true);
@@ -728,7 +695,7 @@ void SettingsScreen::sec_messages()
     x.text = [] { return std::string(tr("Borrar")); };
     x.confirm = true;
     x.act = [this] { app_->clear_all_chats(); };
-    add(NOTE, tr("Los chats sin sonido (fuera de tu equipo) marcan sus mensajes nuevos con un n\xC3\xBAmero gris en vez de azul."));
+    add(NOTE, tr("Los chats fuera de tu equipo marcan sus mensajes nuevos con un n\xC3\xBAmero gris en vez de azul."));
 }
 
 void SettingsScreen::sec_map()

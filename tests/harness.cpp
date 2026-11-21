@@ -277,10 +277,6 @@ void hook_app()
         content = it->second;
         return true;
     };
-    app->on_alert = [](tfield::Alert k, const std::string &what) {
-        static const char *n[] = {"mensaje", "punto", "sos", "prueba"};
-        rec.alerts.push_back(std::string(n[(int)k]) + "|" + what);
-    };
     app->on_channel_invite = [](uint32_t num, const std::string &, const tfield::ChannelKey &) { rec.invites.push_back(num); };
     app->on_request_position = [](uint32_t num) { rec.pos_requests.push_back(num); };
     app->on_channel_set = [](const std::string &name, const tfield::ChannelKey &) { rec.channel_sets.push_back(name); };

@@ -165,8 +165,6 @@ APP_TEST(prueba_al_azar)
                 Settings s = app->settings();
                 s.map_team_only = r() % 2;
                 s.team_first = r() % 2;
-                s.snd_others = r() % 2;
-                s.volume = (uint8_t)(r() % 6 * 20);
                 s.pts_others = (PointPolicy)(r() % 3);
                 s.sos_every_min = (uint8_t)(1 + r() % 5);
                 if (r() % 5 == 0)
@@ -253,7 +251,7 @@ APP_TEST(prueba_al_azar)
                 std::string id = !ch.empty() ? ch[r() % ch.size()].id : "node:101";
                 for (int k = 0; k < 30; k++) {
                     m.text = rnd_text(r, 30);
-                    app->add_message(id, m, false);
+                    app->add_message(id, m);
                 }
                 break;
             }

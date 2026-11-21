@@ -26,8 +26,6 @@ static uint32_t elapsed_ms = 0, last_minute_ms = 0, last_sec_ms = 0;
 static int sim_hour = 14, sim_min = 32;
 static double walk_e = 0, walk_n = 0;
 static std::string last_file; // último archivo "guardado" en la SD simulada
-static std::string last_alert; // último aviso con sonido (la página lo toca y lo muestra)
-static int alert_volume = 60;
 
 static void flush_cb(lv_display_t *d, const lv_area_t *a, uint8_t *px)
 {
@@ -87,15 +85,6 @@ uint8_t *sim_fb(void) { return rgba; }
 
 // Contenido del último archivo GPX generado (para descargarlo desde la página)
 const char *sim_last_file(void) { return last_file.c_str(); }
-
-// Aviso pendiente: "volumen|tipo|texto", o vacío. Se entrega una sola vez.
-static std::string alert_out;
-const char *sim_alert(void)
-{
-    alert_out = last_alert;
-    last_alert.clear();
-    return alert_out.c_str();
-}
 
 int sim_dirty(void)
 {
@@ -309,14 +298,8 @@ int main()
         bool changed = sh != demo::tz_shift_h || s.short_name != demo::short_name;
         demo::tz_shift_h = sh;
         demo::short_name = s.short_name;
-        alert_volume = s.volume;
         if (changed)
             app.set_status(demo::status(sim_hour, sim_min));
-    };
-    app.on_alert = [](Alert kind, const std::string &what) {
-        static const char *names[] = {"mensaje", "punto", "sos", "prueba"};
-        int vol = kind == Alert::Sos ? std::max(alert_volume, 80) : alert_volume;
-        last_alert = std::to_string(vol) + "|" + names[(int)kind] + "|" + what;
     };
     demo::attach_files(app); // tarjeta SD en memoria (rutas, índice, respaldo)
     app.on_save_file = [](const std::string &path, const std::string &content) {

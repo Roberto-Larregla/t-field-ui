@@ -1199,9 +1199,7 @@ void App::receive_waypoint(const Waypoint &in, const std::string &from_chat_id)
     } else {
         m.text = tr("Comparti\xC3\xB3 un punto (no guardado por tus ajustes)");
     }
-    add_message(from_chat_id, m, false);
-    if (policy != PointPolicy::Ignore && settings_.volume && settings_.snd_points && (team || settings_.snd_others) && on_alert)
-        on_alert(Alert::Point, w.from + tr(" comparti\xC3\xB3 ") + w.name);
+    add_message(from_chat_id, m);
 }
 
 // tras cambiar el texto de un mensaje, la vista previa del chat lo refleja si es el último
@@ -1266,7 +1264,7 @@ void App::set_messages(const std::string &chat_id, const std::vector<Message> &m
         messages_screen.refresh_conversation();
 }
 
-void App::add_message(const std::string &in_id, const Message &m, bool alert)
+void App::add_message(const std::string &in_id, const Message &m)
 {
     // un chat que no existe todavía (primer mensaje de un nodo): se crea
     std::string chat_id = in_id;
@@ -1325,8 +1323,6 @@ void App::add_message(const std::string &in_id, const Message &m, bool alert)
             ch.preview = m.mine ? tr("T\xC3\xBA: ") + m.text : (ch.is_channel ? m.from + ": " + m.text : m.text);
             if (!m.mine && !(current_ == ScreenId::Messages && messages_screen.current == chat_id))
                 ch.unread++;
-            if (!m.mine && alert)
-                alert_incoming(ch, m);
         }
     }
     publish_chats();
@@ -1686,7 +1682,7 @@ bool App::is_team_chat(const Chat &ch) const
     return false;
 }
 
-bool App::chat_muted(const Chat &ch) const { return !is_team_chat(ch) && !settings_.snd_others; }
+bool App::chat_outside_team(const Chat &ch) const { return !is_team_chat(ch); }
 
 // ------------------------------------------------------------- borrar chats
 void App::forget_chat(const std::string &chat_id, bool remove)
@@ -1768,30 +1764,6 @@ void App::publish_chats()
         std::stable_partition(view.begin(), view.end(), [this](const Chat &c) { return is_team_chat(c); });
     home.set_chats(view);
     messages_screen.set_chats(view);
-}
-
-void App::alert_incoming(const Chat &ch, const Message &m)
-{
-    if (!on_alert)
-        return;
-    if (m.text.rfind("SOS ", 0) == 0) { // un SOS de otro nodo suena siempre
-        on_alert(Alert::Sos, m.from + ": " + m.text);
-        return;
-    }
-    if (!settings_.volume)
-        return;
-    bool team = is_team_chat(ch);
-    for (auto &n : team_) // en un canal, cuenta quién escribe
-        if (n.in_team && n.name == m.from)
-            team = true;
-    if (team ? settings_.snd_team : settings_.snd_others)
-        on_alert(Alert::Message, m.from + ": " + m.text);
-}
-
-void App::test_alert()
-{
-    if (on_alert)
-        on_alert(Alert::Test, tr("Prueba de sonido"));
 }
 
 // ------------------------------------------------------- canal privado
