@@ -103,7 +103,7 @@ Los ajustes se guardan como texto `clave=valor` (`settings_to_text`) en la memor
 | Pantalla | Brillo (20–100 %), apagar tras (15 s – 10 min, nunca), luz del teclado, tema (claro, oscuro, automático), idioma (español, inglés) | Firmware/MUI: brillo, `display.screen_on_secs`, teclado; tema e idioma los usa la interfaz |
 | GPS y posición | GPS sí/no, enviar posición cada (1 min – 1 h), enviar antes si me muevo, punto de ruta cada (5 s – 1 min) | `position.gps_mode`, `position_broadcast_secs`, `position_broadcast_smart_enabled`; el intervalo de ruta lo usa la interfaz |
 | Avisos | Volumen, probar, sonido para mi equipo / para otros / para puntos; SOS de otros siempre suena | Interfaz (`on_alert`) + sonido del equipo |
-| Mensajes | Chats de mi equipo primero; editar respuestas rápidas | Interfaz |
+| Mensajes | Chats de mi equipo primero; editar respuestas rápidas; borrar mensajes de más de 1, 7 o 30 días; borrar todos los chats | Interfaz (`on_clear_chat` para el historial guardado) |
 | Mapa y puntos | Nodos en el mapa (todos / mi equipo, también en Capas); puntos de mi equipo (guardar solos / preguntar); puntos de otros (preguntar / guardar / ignorar); «Todo mi equipo» al compartir | Interfaz |
 | Canal privado | Crear, nombre (máx. 11 bytes), huella de la clave, estado de cada miembro, invitar, cambiar clave, quitar | Canal secundario de Meshtastic (`on_channel_set`) |
 | SOS | Directo a cada miembro con confirmación, canal público, canal privado, repetir cada 1/2/5 min | Interfaz (`on_sos` con canales y nodos; `sos_ack` al confirmar) |
@@ -134,7 +134,7 @@ Reglas de seguridad:
 
 ## 11. Límites del equipo y pruebas
 
-Las pruebas automáticas (42, más una prueba al azar de 5000 pasos con 12 semillas) corren con las cifras de la T-Deck Plus: ESP32-S3 a 240 MHz con coma flotante solo simple, 8 MB de PSRAM (5 MB para LVGL, como en Meshtastic), pantalla de 320×240 por SPI a 40 MHz (~31 ms por pantalla completa), hasta 250 nodos, teclado sin tecla mantenida ni Esc ni flechas, y bola con flechas y clic (4 movimientos por segundo). También pasan con LVGL 9.3.0, la versión de device-ui.
+Las pruebas automáticas (46, más una prueba al azar de 5000 pasos con 12 semillas) corren con las cifras de la T-Deck Plus: ESP32-S3 a 240 MHz con coma flotante solo simple, 8 MB de PSRAM (5 MB para LVGL, como en Meshtastic), pantalla de 320×240 por SPI a 40 MHz (~31 ms por pantalla completa), hasta 250 nodos, teclado sin tecla mantenida ni Esc ni flechas, y bola con flechas y clic (4 movimientos por segundo). También pasan con LVGL 9.3.0, la versión de device-ui.
 
 **Teclado y bola**
 - La bola entra como flechas + Enter por `App::handle_key`. ↑/↓ recorren los elementos; sobre el mapa, Enter lo "toma" y las flechas lo mueven.
@@ -187,7 +187,6 @@ Las pruebas automáticas (42, más una prueba al azar de 5000 pasos con 12 semil
 - El cambio automático al anochecer espera un momento tranquilo: en el inicio, o tras un minuto sin tocar nada, y nunca con un diálogo o un texto a medio escribir.
 - **Pruebas:** el cambio repetido no pierde memoria; en inglés se recorren todas las pantallas y no queda texto en español.
 - **Para el adaptador:** los estados de mensaje y los roles de nodo se entregan en español (*Enviado*, *Entregado*, *cliente*, *repetidor*…): la interfaz los traduce.
-
 
 ## 13. Borrar chats
 
