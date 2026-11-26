@@ -343,6 +343,7 @@ class App {
     bool is_team_chat(const Chat &ch) const;
     bool chat_outside_team(const Chat &ch) const; // sus mensajes nuevos se marcan en gris
     const TeamNode *chat_node(const Chat &ch) const; // el nodo de un chat directo (o nullptr)
+    uint32_t chat_num(const Chat &ch) const;          // su número de nodo (0 si no se sabe)
     void edit_quick(int i); // abre el editor de respuestas rápidas (i: en esa; -1: la primera)
     // Canal privado del equipo
     void create_channel();
@@ -526,6 +527,9 @@ class App {
     double dist_acc_ = 0, gain_acc_ = 0; // totales de la ruta en curso, sin redondear cada paso
     float alt_ref_ = 0;
     void restat_track();            // recalcula los totales desde los puntos
+    void restore_kept_chats();      // directos vaciados con Borrar: vuelven al arrancar
+    void keep_chat(uint32_t num, bool keep);
+    void save_settings_soon();      // los ajustes se guardan 2 s después del último cambio
     bool recovered_ = false;
     void flush_backup();
     lv_timer_t *sos_timer_ = nullptr;

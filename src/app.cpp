@@ -201,6 +201,18 @@ void App::set_team(const std::vector<TeamNode> &team)
         if (n.in_team)
             mine.push_back(n);
     home.set_team(mine);
+    // chats directos restaurados antes de conocer el nodo ("!123"): su nombre y color
+    bool renamed = false;
+    for (auto &ch : chats_)
+        if (!ch.is_channel && !ch.name.empty() && ch.name[0] == '!' && ch.id.rfind("node:", 0) == 0)
+            for (auto &n : team_)
+                if ("node:" + std::to_string(n.num) == ch.id && !n.name.empty()) {
+                    ch.name = n.name;
+                    ch.color = n.color;
+                    renamed = true;
+                }
+    if (renamed)
+        publish_chats();
     messages_screen.refresh_meta();
     map_screen.set_team(team_);
     team_screen.set_nodes(team_);
@@ -1260,7 +1272,53 @@ void App::delete_waypoint(uint32_t id)
 void App::set_chats(const std::vector<Chat> &chats)
 {
     chats_ = chats;
+    restore_kept_chats();
     publish_chats();
+}
+
+// Los chats directos vaciados con Borrar vuelven al arrancar (vacíos, al final)
+void App::restore_kept_chats()
+{
+    for (uint32_t num : settings_.kept_chats) {
+        std::string id = "node:" + std::to_string(num);
+        bool have = false;
+        for (auto &ch : chats_)
+            have |= !ch.is_channel && (ch.id == id || chat_num(ch) == num);
+        if (have)
+            continue;
+        Chat ch;
+        ch.id = id;
+        ch.name = "!" + std::to_string(num);
+        for (auto &n : team_)
+            if (n.num == num)
+                ch.name = n.name, ch.color = n.color;
+        chats_.push_back(ch);
+    }
+}
+
+uint32_t App::chat_num(const Chat &ch) const
+{
+    if (ch.is_channel)
+        return 0;
+    if (ch.id.rfind("node:", 0) == 0)
+        return (uint32_t)std::strtoul(ch.id.c_str() + 5, nullptr, 10);
+    const TeamNode *n = chat_node(ch);
+    return n ? n->num : 0;
+}
+
+void App::keep_chat(uint32_t num, bool keep)
+{
+    auto &k = settings_.kept_chats;
+    auto it = std::find(k.begin(), k.end(), num);
+    if (keep == (it != k.end()))
+        return;
+    if (keep) {
+        k.push_back(num);
+        if (k.size() > 32)
+            k.erase(k.begin());
+    } else
+        k.erase(it);
+    save_settings_soon();
 }
 
 void App::set_messages(const std::string &chat_id, const std::vector<Message> &msgs)
@@ -1507,6 +1565,7 @@ void App::set_settings(const Settings &s)
 {
     settings_ = s;
     map_screen.set_team_only(s.map_team_only);
+    restore_kept_chats();
     publish_chats();
     settings_screen.refresh();
     if (wants_dark() != g_dark || (settings_.lang ? Lang::En : Lang::Es) != g_lang)
@@ -1656,6 +1715,26 @@ void App::flush_settings()
         on_settings(settings_);
 }
 
+// guardar: 2 s después del último cambio
+void App::save_settings_soon()
+{
+    settings_pending_ = true;
+    if (settings_timer_)
+        lv_timer_reset(settings_timer_);
+    else {
+        settings_timer_ = lv_timer_create(
+            [](lv_timer_t *t) {
+                auto *a = static_cast<App *>(lv_timer_get_user_data(t));
+                a->settings_timer_ = nullptr; // se borra solo (una vez)
+                a->settings_pending_ = false;
+                if (a->on_settings)
+                    a->on_settings(a->settings_);
+            },
+            2000, this);
+        lv_timer_set_repeat_count(settings_timer_, 1);
+    }
+}
+
 void App::update_settings(const Settings &s)
 {
     Settings prev = settings_;
@@ -1672,22 +1751,7 @@ void App::update_settings(const Settings &s)
     settings_screen.refresh();
     if (on_settings_preview)
         on_settings_preview(settings_);
-    // guardar: 2 s después del último cambio
-    settings_pending_ = true;
-    if (settings_timer_)
-        lv_timer_reset(settings_timer_);
-    else {
-        settings_timer_ = lv_timer_create(
-            [](lv_timer_t *t) {
-                auto *a = static_cast<App *>(lv_timer_get_user_data(t));
-                a->settings_timer_ = nullptr; // se borra solo (una vez)
-                a->settings_pending_ = false;
-                if (a->on_settings)
-                    a->on_settings(a->settings_);
-            },
-            2000, this);
-        lv_timer_set_repeat_count(settings_timer_, 1);
-    }
+    save_settings_soon();
     if (prev.theme != s.theme || prev.lang != s.lang)
         apply_look(); // a mano en Ajustes: ya
     if (prev.msg_keep_days != s.msg_keep_days)
@@ -1746,7 +1810,12 @@ void App::forget_chat(const std::string &chat_id, bool remove)
 
 void App::delete_chat(const std::string &chat_id)
 {
-    // se borran los mensajes; el chat (directo o canal) queda en su pestaña, vacío
+    // se borran los mensajes; el chat (directo o canal) queda en su pestaña, vacío, y un
+    // directo se anota en los ajustes para que siga ahí al reiniciar
+    for (auto &ch : chats_)
+        if (ch.id == chat_id && !ch.is_channel)
+            if (uint32_t num = chat_num(ch))
+                keep_chat(num, true);
     forget_chat(chat_id, false);
     publish_chats();
     messages_screen.show_chat(messages_screen.current);
@@ -1755,8 +1824,12 @@ void App::delete_chat(const std::string &chat_id)
 void App::clear_all_chats()
 {
     std::vector<std::pair<std::string, bool>> all;
-    for (auto &ch : chats_)
+    for (auto &ch : chats_) {
         all.push_back({ch.id, !ch.is_channel});
+        if (!ch.is_channel) // los directos desaparecen: tampoco vuelven al reiniciar
+            if (uint32_t num = chat_num(ch))
+                keep_chat(num, false);
+    }
     for (auto &c : all)
         forget_chat(c.first, c.second);
     publish_chats();
@@ -1786,8 +1859,12 @@ void App::purge_old_messages()
     for (auto &id : emptied) { // un directo sin mensajes desaparece; un canal queda vacío
         bool channel = false;
         for (auto &ch : chats_)
-            if (ch.id == id)
+            if (ch.id == id) {
                 channel = ch.is_channel;
+                if (!channel)
+                    if (uint32_t num = chat_num(ch))
+                        keep_chat(num, false);
+            }
         forget_chat(id, !channel);
     }
     refresh_previews(chats_, messages_);

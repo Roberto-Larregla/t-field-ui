@@ -49,6 +49,22 @@ APP_TEST(borrar_un_chat)
     CHECK(app->messages(id).empty());
     CHECK_EQ(app->messages_screen.current, id); // sigue abierto, listo para escribir
     CHECK(!rec.cleared.empty() && rec.cleared.back() == id + "|0");
+    // al reiniciar (ajustes guardados y chats nuevos desde la radio: solo canales), vuelve
+    CHECK(std::find(app->settings().kept_chats.begin(), app->settings().kept_chats.end(), 2u) !=
+          app->settings().kept_chats.end());
+    {
+        Settings saved = settings_from_text(settings_to_text(app->settings()));
+        std::vector<Chat> radio;
+        for (auto &c : app->chats())
+            if (c.is_channel)
+                radio.push_back(c);
+        app->set_settings(saved);
+        app->set_chats(radio);
+        bool back = false;
+        for (auto &c : app->chats())
+            back |= !c.is_channel && app->chat_num(c) == 2 && c.name == "GEO2";
+        CHECK(back);
+    }
     CHECK(app->current() == ScreenId::Messages);
     // volver a escribirle: Equipo › ficha › Mensaje
     app->show_node(2);
@@ -83,6 +99,9 @@ APP_TEST(borrar_un_chat)
 
 APP_TEST(borrar_todos_los_chats)
 {
+    app->open_direct_chat(2);
+    app->delete_chat(app->messages_screen.current); // vaciado con Borrar: anotado para reiniciar
+    CHECK(!app->settings().kept_chats.empty());
     app->show_settings_section(SettingsScreen::S_MESSAGES);
     lv_obj_t *row = nullptr;
     lv_group_t *g = app->settings_screen.group;
@@ -110,6 +129,7 @@ APP_TEST(borrar_todos_los_chats)
         msgs += app->messages(c.id).size();
     }
     CHECK_EQ(msgs, (size_t)0);
+    CHECK(app->settings().kept_chats.empty()); // "todos" quita también los directos guardados
 }
 
 APP_TEST(borrado_automatico_por_dias)

@@ -191,6 +191,10 @@ std::string settings_to_text(const Settings &s)
     for (uint32_t n : s.team)
         team += (team.empty() ? "" : ",") + std::to_string(n);
     puts("team", team);
+    std::string kept;
+    for (uint32_t n : s.kept_chats)
+        kept += (kept.empty() ? "" : ",") + std::to_string(n);
+    puts("chats", kept);
     put("channel_on", s.channel.on);
     puts("channel_name", s.channel.name);
     puts("channel_chat", s.channel.chat_id);
@@ -279,18 +283,21 @@ Settings settings_from_text(const std::string &text)
         else if (k == "sos_public") flag(s.sos_public);
         else if (k == "sos_team_ch") flag(s.sos_team_ch);
         else if (k == "sos_every_min") u8(s.sos_every_min, 1, 60);
-        else if (k == "team") {
-            s.team.clear();
+        else if (k == "team" || k == "chats") {
+            std::vector<uint32_t> &list = k == "team" ? s.team : s.kept_chats;
+            list.clear();
             const char *p = v.c_str();
             while (*p) {
                 char *e = nullptr;
                 unsigned long t = std::strtoul(p, &e, 10);
                 if (e == p)
                     break;
-                if (t && std::find(s.team.begin(), s.team.end(), (uint32_t)t) == s.team.end())
-                    s.team.push_back((uint32_t)t);
+                if (t && std::find(list.begin(), list.end(), (uint32_t)t) == list.end())
+                    list.push_back((uint32_t)t);
                 p = *e == ',' ? e + 1 : e;
             }
+            if (k == "chats" && list.size() > 32)
+                list.erase(list.begin(), list.end() - 32);
         } else if (k == "channel_on") flag(s.channel.on);
         else if (k == "channel_name") {
             if (!v.empty())

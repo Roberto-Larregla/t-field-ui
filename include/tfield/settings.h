@@ -59,6 +59,8 @@ struct Settings {
     uint8_t sos_every_min = 2;
     // Mi equipo: nodos marcados (se guardan aquí para que no se pierdan al reiniciar)
     std::vector<uint32_t> team;
+    // Chats directos vaciados con Borrar: su pestaña sigue ahí al reiniciar (máx. 32)
+    std::vector<uint32_t> kept_chats;
     // Canal privado
     TeamChannel channel;
     std::vector<ChannelMember> members;
