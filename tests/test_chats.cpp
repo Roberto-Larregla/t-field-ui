@@ -57,15 +57,17 @@ APP_TEST(borrar_un_chat)
     CHECK(has_chat(app->messages_screen.current));
     app->send(app->messages_screen.current, "Sigo en la quebrada");
     CHECK(!rec.sent.empty());
-    // o cuando el otro escribe
+    // cuando el otro escribe, llega a la misma pestaña (vacía tras borrar)
     std::string again = app->messages_screen.current;
     app->delete_chat(again);
+    CHECK(has_chat(again));
     Message m;
     m.from = "GEO2";
     m.time = "15:00";
     m.text = "Ya voy";
     app->add_message("node:2", m);
-    CHECK(has_chat("node:2"));
+    CHECK(has_chat(again));
+    CHECK(!app->messages(again).empty() && app->messages(again).back().text == "Ya voy");
 
     // canal: queda en la lista, vacío
     std::string ch;
