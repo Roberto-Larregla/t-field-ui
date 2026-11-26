@@ -112,6 +112,32 @@ int main(int argc, char **argv)
     render(out + "/inicio_compartido.raw");
     app.show(tfield::ScreenId::Map);
     render(out + "/mapa.raw");
+    // Mapa: elegir con ‹ ›, el panel Nombres y el mapa con los nombres del equipo
+    lv_group_focus_obj(app.map_screen.view);
+    if (!app.handle_key(LV_KEY_RIGHT)) // ‹ › sobre el mapa: el marcador más cercano al centro
+        lv_group_send_data(app.map_screen.group, LV_KEY_RIGHT);
+    render(out + "/mapa_elegido.raw");
+    app.handle_key(LV_KEY_ESC);
+    { // "Aa" es hijo del área del mapa (que también está en el grupo): el botón, no el mapa
+        lv_group_t *g = app.map_screen.group;
+        for (uint32_t i = 0; i < lv_group_get_obj_count(g); i++) {
+            lv_obj_t *o = lv_group_get_obj_by_index(g, i);
+            lv_obj_t *c = lv_obj_get_child_count(o) ? lv_obj_get_child(o, 0) : nullptr;
+            if (o != app.map_screen.view && c && lv_obj_check_type(c, &lv_label_class) &&
+                std::strcmp(lv_label_get_text(c), "Aa") == 0)
+                click(o);
+        }
+    }
+    render(out + "/mapa_nombres.raw");
+    click(by_text(app.map_screen.group, tfield::tr("Mi equipo"), true));
+    app.handle_key(LV_KEY_ESC);
+    render(out + "/mapa_con_nombres.raw");
+    {
+        tfield::Settings st = app.settings(); // lo que sigue, sin nombres (como viene)
+        st.map_names = 0;
+        app.update_settings(st);
+        app.show(tfield::ScreenId::Map);
+    }
     // Rutas -> R1 -> volver al inicio
     click(by_text(app.map_screen.group, "Rutas"));
     render(out + "/mapa_rutas.raw");
@@ -250,5 +276,6 @@ int main(int argc, char **argv)
     st.sats = 0;
     app.set_status(st);
     render(out + "/inicio_sin_posicion.raw");
+
     return 0;
 }

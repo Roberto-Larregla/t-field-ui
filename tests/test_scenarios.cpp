@@ -612,3 +612,79 @@ APP_TEST(inicio_foco_estable)
     th::tick(30);
     CHECK_EQ(row_name(lv_group_get_focused(g)), std::string("BASE"));
 }
+
+// ------------------------------------------------------ nombres en el mapa
+static lv_obj_t *by_label(lv_group_t *g, const std::string &txt)
+{
+    for (uint32_t i = 0; i < lv_group_get_obj_count(g); i++) {
+        lv_obj_t *o = lv_group_get_obj_by_index(g, i);
+        for (uint32_t k = 0; k < lv_obj_get_child_count(o); k++) {
+            lv_obj_t *c = lv_obj_get_child(o, (int32_t)k);
+            if (lv_obj_check_type(c, &lv_label_class) && txt == lv_label_get_text(c))
+                return o;
+        }
+    }
+    return nullptr;
+}
+
+APP_TEST(mapa_limpio_y_nombres)
+{
+    app->show(ScreenId::Map);
+    th::tick(30);
+    // limpio: sin nombres; elegir un compañero muestra su ficha
+    CHECK(!th::visible_text("GEO2"));
+    app->show_node_on_map(2);
+    th::tick(30);
+    CHECK(th::visible_text("GEO2 \xC2\xB7 "));
+    CHECK(th::visible_text("Enter: ficha"));
+    th::key(LV_KEY_ESC); // la suelta y sigue en el mapa (queda su rastro, con su nombre)
+    CHECK(app->current() == ScreenId::Map);
+    CHECK(!th::visible_text("Enter: ficha"));
+    app->show(ScreenId::Home);
+    app->show(ScreenId::Map); // al volver, sin rastro: limpio otra vez
+    th::tick(30);
+    CHECK(!th::visible_text("GEO2"));
+    // Aa › Mi equipo: los nombres del equipo, siempre
+    lv_group_t *g = app->map_screen.group;
+    lv_obj_t *aa = by_label(g, "Aa");
+    CHECK(aa != nullptr);
+    if (!aa)
+        return;
+    lv_obj_send_event(aa, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(th::visible_text("Nombres en el mapa"));
+    lv_obj_t *team = by_label(g, "Mi equipo");
+    CHECK(team != nullptr);
+    if (!team)
+        return;
+    lv_obj_send_event(team, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(app->settings().map_names & MAP_NAMES_TEAM);
+    // uno por uno: un punto propio queda con nombre aunque "Mis puntos" esté apagado
+    const Waypoint *wp = nullptr;
+    for (auto &w : app->waypoints())
+        if (w.from.empty())
+            wp = &w;
+    CHECK(wp != nullptr);
+    if (!wp)
+        return;
+    uint32_t wid = wp->id;
+    std::string wname = wp->name;
+    lv_obj_t *row = by_label(g, wname);
+    CHECK(row != nullptr);
+    if (row)
+        lv_obj_send_event(row, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(std::find(app->settings().map_name_wps.begin(), app->settings().map_name_wps.end(), wid) !=
+          app->settings().map_name_wps.end());
+    th::key(LV_KEY_ESC); // cierra el panel
+    app->map_screen.focus_waypoint(wid); // el punto a la vista
+    th::key(LV_KEY_ESC);                 // sin elegir: queda su nombre en el mapa
+    th::tick(30);
+    CHECK(th::visible_text("GEO2"));
+    CHECK(th::visible_text(wname));
+    // se guardan (sobreviven a reiniciar)
+    Settings back = settings_from_text(settings_to_text(app->settings()));
+    CHECK_EQ((int)back.map_names, (int)app->settings().map_names);
+    CHECK(back.map_name_wps == app->settings().map_name_wps);
+}

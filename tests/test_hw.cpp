@@ -127,9 +127,13 @@ APP_TEST(hw_teclado_y_bola)
     CHECK(lv_group_get_focused(g) == app->map_screen.view);
     double la0, lo0, la1, lo1;
     app->map_screen.center(la0, lo0);
-    th::ball(LV_KEY_LEFT); // sin tomarlo, no se mueve
+    th::ball(LV_KEY_LEFT); // sin tomarlo, no se mueve: elige un marcador (con su ficha)
     app->map_screen.center(la1, lo1);
     CHECK_EQ(lo1, lo0);
+    CHECK(th::visible_text("Enter: ficha") || th::visible_text("Enter: editar"));
+    th::kb(LV_KEY_BACKSPACE); // Borrar (Esc) suelta lo elegido; sigue en el mapa
+    CHECK(app->current() == ScreenId::Map);
+    CHECK(!th::visible_text("Enter: ficha") && !th::visible_text("Enter: editar"));
     th::ball_press(120);
     CHECK(app->map_screen.pan_mode());
     th::ball(LV_KEY_LEFT);

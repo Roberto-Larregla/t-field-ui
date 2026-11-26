@@ -258,6 +258,40 @@ void MapScreen::create(App *app)
         btn_ruler_, [](lv_event_t *e) { static_cast<MapScreen *>(lv_event_get_user_data(e))->ruler_toggle(); },
         LV_EVENT_CLICKED, this);
 
+    // Nombres en el mapa: por tipo y uno por uno
+    btn_names_ = map_button(view, 148, group);
+    names_lbl_ = label(btn_names_, &tfield_font_12b, col::INK, "Aa");
+    lv_obj_center(names_lbl_);
+    lv_obj_add_event_cb(
+        btn_names_, [](lv_event_t *e) {
+            auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+            s->show_panel(s->panel_kind_ == PANEL_NAMES ? PANEL_NONE : PANEL_NAMES);
+        },
+        LV_EVENT_CLICKED, this);
+
+    // Lo elegido: anillo alrededor y ficha con nombre, distancia y desnivel (tocarla abre)
+    sel_ring_ = box(view, 0, 0, 22, 22, col::SURF);
+    lv_obj_set_style_bg_opa(sel_ring_, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_radius(sel_ring_, LV_RADIUS_CIRCLE, 0);
+    border(sel_ring_, col::INK, 3);
+    show(sel_ring_, false);
+    callout_ = button(view, 0, 0, 10, 10, col::SURF, col::INK, nullptr);
+    lv_obj_set_size(callout_, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_border_width(callout_, 2, 0);
+    lv_obj_set_style_radius(callout_, 5, 0);
+    lv_obj_set_style_pad_hor(callout_, 6, 0);
+    lv_obj_set_style_pad_ver(callout_, 3, 0);
+    lv_obj_set_style_bg_color(callout_, c(col::BG), LV_STATE_PRESSED);
+    lv_obj_set_flex_flow(callout_, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(callout_, 1, 0);
+    callout_l1_ = label(callout_, &tfield_font_12b, col::INK, "");
+    callout_l2_ = label(callout_, &tfield_font_12, col::INK, "");
+    callout_l3_ = label(callout_, &tfield_font_12, col::INK2, "");
+    lv_obj_add_event_cb(
+        callout_, [](lv_event_t *e) { static_cast<MapScreen *>(lv_event_get_user_data(e))->open_selection(); },
+        LV_EVENT_CLICKED, this);
+    show(callout_, false);
+
     // Franja superior: destino (azul) o regla (oscura)
     strip_ = box(view, 0, 0, MAP_W, 20, col::BLUE);
     strip_lbl_ = label(strip_, &tfield_font_12b, col::SURF, "");
@@ -353,6 +387,7 @@ void MapScreen::create(App *app)
     build_share();
     update_toolbar();
     update_center_button();
+    update_names_button();
 }
 
 // ------------------------------------------------------------- datos
@@ -438,10 +473,9 @@ void MapScreen::focus_node(uint32_t num)
         clon_ = n.lon;
         trail_node_ = num;
         update_center_button();
+        sel_kind_ = SEL_NODE; // su ficha: nombre, distancia, desnivel
+        sel_id_ = num;
         redraw();
-        std::string msg = n.name + " \xC2\xB7 " + format_distance(n.dist_m) + " " + cardinal(n.bearing_deg) + " \xC2\xB7 " +
-                          ago_text(n.pos_age_s);
-        toast(msg);
         return;
     }
     toast(tr("Ese nodo no ha enviado posici\xC3\xB3n"));
@@ -455,6 +489,8 @@ void MapScreen::nav_to_node(uint32_t num)
         nav_ = Nav{};
         nav_.on = true;
         nav_.node = num;
+        sel_kind_ = SEL_NONE; // el destino tiene su franja arriba
+        sel_id_ = 0;
         nav_.name = n.name;
         nav_.lat = n.lat;
         nav_.lon = n.lon;
@@ -516,6 +552,8 @@ void MapScreen::on_enter()
     show_panel(PANEL_NONE);
     highlight_wp_ = 0;
     trail_node_ = 0;
+    sel_kind_ = SEL_NONE;
+    sel_id_ = 0;
     redraw();
     if (app_->take_recovered()) // se apagó grabando: la ruta está a salvo
         open_dialog(DLG_ROUTE, 1);
@@ -568,13 +606,9 @@ void MapScreen::focus_waypoint(uint32_t id)
         clon_ = w.lon;
         highlight_wp_ = id;
         update_center_button();
+        sel_kind_ = SEL_WP;
+        sel_id_ = id;
         redraw();
-        std::string msg = w.name;
-        if (pos_.valid) {
-            int32_t d = (int32_t)haversine_m(pos_.lat, pos_.lon, w.lat, w.lon);
-            msg += " \xC2\xB7 " + format_distance(d) + " " + cardinal((int)bearing_deg(pos_.lat, pos_.lon, w.lat, w.lon));
-        }
-        toast(msg);
         return;
     }
     toast(tr("El punto ya no existe"));
@@ -1044,11 +1078,14 @@ void MapScreen::redraw()
     lv_obj_set_pos(coords_, 4, strip_on ? 24 : 4);
     lv_obj_set_pos(north_, MAP_W - 20, strip_on ? 23 : 3);
     // la columna de botones baja cuando hay franja arriba, para no tapar la flecha del norte
-    int32_t dy = strip_on ? 20 : 0;
-    lv_obj_set_y(zoom_btn_[0], 36 + dy);
-    lv_obj_set_y(zoom_btn_[1], 63 + dy);
-    lv_obj_set_y(btn_center_, 94 + dy);
-    lv_obj_set_y(btn_ruler_, 121 + dy);
+    // (y se junta: los 5 caben en el alto del mapa)
+    static const int32_t Y_FREE[5] = {36, 63, 94, 121, 148}, Y_STRIP[5] = {52, 78, 104, 130, 156};
+    const int32_t *ys = strip_on ? Y_STRIP : Y_FREE;
+    lv_obj_set_y(zoom_btn_[0], ys[0]);
+    lv_obj_set_y(zoom_btn_[1], ys[1]);
+    lv_obj_set_y(btn_center_, ys[2]);
+    lv_obj_set_y(btn_ruler_, ys[3]);
+    lv_obj_set_y(btn_names_, ys[4]);
 
     place_markers();
 
@@ -1146,38 +1183,14 @@ void MapScreen::place_me()
 void MapScreen::place_markers()
 {
     place_me();
-
-    // Etiquetas: evitar que se tapen entre sí o con coordenadas y norte
-    std::vector<lv_area_t> placed;
-    for (lv_obj_t *fixed : {coords_, north_}) {
-        lv_obj_update_layout(fixed);
-        lv_area_t a;
-        lv_obj_get_coords(fixed, &a);
-        placed.push_back(a);
-    }
-    auto settle = [&](lv_obj_t *lbl) {
-        lv_obj_update_layout(lbl);
-        lv_area_t a;
-        lv_obj_get_coords(lbl, &a);
-        int32_t h = lv_area_get_height(&a) + 2;
-        for (int tries = 0; tries < 6; tries++) {
-            bool hit = false;
-            for (auto &p : placed)
-                if (a.x1 <= p.x2 && a.x2 >= p.x1 && a.y1 <= p.y2 && a.y2 >= p.y1)
-                    hit = true;
-            if (!hit)
-                break;
-            lv_obj_set_y(lbl, lv_obj_get_y(lbl) + h);
-            lv_obj_update_layout(lbl);
-            lv_obj_get_coords(lbl, &a);
-        }
-        placed.push_back(a);
-    };
+    hits_.clear();
+    const Settings &st = app_->settings();
+    auto pinned = [](const std::vector<uint32_t> &v, uint32_t id) { return std::find(v.begin(), v.end(), id) != v.end(); };
+    bool strip_on = nav_.on || ruler_;
 
     // Puntos: cuadrado (los recibidos de otro equipo, con borde de color y fondo blanco).
     // Una campaña junta cientos: solo se crean marcadores para los que se ven, hasta
-    // MAP_WP_MARKS (los más cercanos al centro), y con muchos a la vista, nombre solo en los
-    // MAP_WP_LABELS más cercanos (el destino y el resaltado, siempre con nombre).
+    // MAP_WP_MARKS (los más cercanos al centro).
     struct WpShown {
         const Waypoint *w;
         int32_t sx, sy;
@@ -1191,7 +1204,8 @@ void MapScreen::place_markers()
             if (!cached_screen(wp_xy_, i, all[i].id, all[i].lat, all[i].lon, sx, sy))
                 continue;
             double dx = sx - MAP_W / 2.0, dy = sy - MAP_H / 2.0;
-            bool key = (nav_.on && nav_.wp == all[i].id) || highlight_wp_ == all[i].id;
+            bool key = (nav_.on && nav_.wp == all[i].id) || highlight_wp_ == all[i].id ||
+                       (sel_kind_ == SEL_WP && sel_id_ == all[i].id);
             wv.push_back({&all[i], sx, sy, key ? -1.0 : dx * dx + dy * dy});
         }
         if (wp_xy_.size() > all.size())
@@ -1210,31 +1224,21 @@ void MapScreen::place_markers()
     }
     for (size_t i = 0; i < wp_marks_.size(); i++) {
         NodeMarker &m = wp_marks_[i];
+        show(m.label, false);
         if (i >= wv.size()) {
             show(m.dot, false);
-            show(m.label, false);
             continue;
         }
         const Waypoint &w = *wv[i].w;
-        int32_t sx = wv[i].sx, sy = wv[i].sy;
         bool theirs = !w.from.empty();
         set_bg(m.dot, theirs ? col::SURF : WP_COLOR);
         set_border_color(m.dot, theirs ? WP_COLOR : col::SURF);
         show(m.dot, true);
-        lv_obj_set_pos(m.dot, sx - 5, sy - 5);
-        bool full = wv[i].d2 < 0;
-        if (!full && i >= MAP_WP_LABELS) {
-            show(m.label, false);
-            continue;
-        }
-        show(m.label, true);
-        std::string shortname = w.name.substr(0, w.name.find(' '));
-        set_text(m.label, full ? w.name : (theirs ? shortname + " \xC2\xB7 " + w.from : shortname));
-        ui::align_to(m.label, m.dot, LV_ALIGN_OUT_RIGHT_MID, 2, 0);
-        settle(m.label);
+        lv_obj_set_pos(m.dot, wv[i].sx - 5, wv[i].sy - 5);
+        hits_.push_back({wv[i].sx, wv[i].sy, SEL_WP, w.id, false, i});
     }
 
-    // Equipo: punto + nombre; fuera de la vista, en el borde con la distancia.
+    // Equipo y red: punto; fuera de la vista, en el borde con una flecha hacia donde está.
     // Con 250 nodos en la red no se crean 500 objetos: solo marcadores para lo que se dibuja
     // (mi equipo siempre; los ajenos a la vista, hasta 40, los más cercanos al centro).
     struct Shown {
@@ -1252,7 +1256,7 @@ void MapScreen::place_markers()
             continue;
         int32_t sx, sy;
         bool inside = cached_screen(node_xy_, ni, n.num, n.lat, n.lon, sx, sy);
-        if (n.in_team || n.num == trail_node_)
+        if (n.in_team || n.num == trail_node_ || (sel_kind_ == SEL_NODE && sel_id_ == n.num))
             list.push_back({&n, sx, sy, inside});
         else if (inside && !team_only_)
             others.push_back({&n, sx, sy, inside});
@@ -1273,14 +1277,21 @@ void MapScreen::place_markers()
         lv_obj_set_style_radius(m.dot, LV_RADIUS_CIRCLE, 0);
         border(m.dot, col::SURF, 2);
         m.label = pill(view, &tfield_font_12b, col::SURF, col::INK, LV_OPA_COVER);
+        m.arrow = lv_line_create(view);
+        lv_obj_set_style_line_width(m.arrow, 3, 0);
+        lv_obj_set_style_line_rounded(m.arrow, true, 0);
+        arrow_pts_.push_back({});
+        lv_line_set_points(m.arrow, arrow_pts_.back().data(), 3);
         team_marks_.push_back(m);
     }
-    bool strip_on = nav_.on || ruler_;
+    // borde de la vista donde van los que están fuera (dejando lugar a la flecha)
+    const double top_m = strip_on ? 52 : 34, bot_m = 32, side_m = 16;
     for (size_t i = 0; i < team_marks_.size(); i++) {
         NodeMarker &m = team_marks_[i];
+        show(m.label, false);
         if (i >= list.size()) {
             show(m.dot, false);
-            show(m.label, false);
+            show(m.arrow, false);
             continue;
         }
         const TeamNode &n = *list[i].n;
@@ -1289,29 +1300,256 @@ void MapScreen::place_markers()
         set_bg(m.dot, color);
         set_bg(m.label, color);
         show(m.dot, true);
-        show(m.label, true);
         if (list[i].inside) {
             lv_obj_set_pos(m.dot, sx - 5, sy - 5);
-            set_text(m.label, n.name);
-            ui::align_to(m.label, m.dot, LV_ALIGN_OUT_RIGHT_MID, 2, 0);
-        } else {
-            double top_m = strip_on ? 46 : 26, bot_m = 24, side_m = 8;
-            double cy0 = (top_m + MAP_H - bot_m) / 2.0, half_h = (MAP_H - bot_m - top_m) / 2.0;
-            double dx = sx - MAP_W / 2.0, dy = sy - cy0;
-            double kx = dx != 0 ? (MAP_W / 2.0 - side_m) / std::fabs(dx) : 1e9;
-            double ky = dy != 0 ? half_h / std::fabs(dy) : 1e9;
-            double k = std::min(kx, ky);
-            int32_t ex = (int32_t)(MAP_W / 2.0 + dx * k), ey = (int32_t)(cy0 + dy * k);
-            lv_obj_set_pos(m.dot, ex - 5, ey - 5);
-            set_text(m.label, n.name + " " + format_distance(n.dist_m));
-            lv_obj_update_layout(m.label);
-            int32_t lw = lv_obj_get_width(m.label), lh = lv_obj_get_height(m.label);
-            int32_t lx = ex + 8 + lw > CTRL_X - 2 ? ex - 8 - lw : ex + 8;
-            int32_t ly = std::clamp(ey - lh / 2, (int32_t)top_m, (int32_t)(MAP_H - bot_m - lh));
-            lv_obj_set_pos(m.label, lx, ly);
+            show(m.arrow, false);
+            hits_.push_back({sx, sy, SEL_NODE, n.num, false, i});
+            continue;
         }
-        settle(m.label);
+        double cy0 = (top_m + MAP_H - bot_m) / 2.0, half_h = (MAP_H - bot_m - top_m) / 2.0;
+        double dx = sx - CTRL_X / 2.0, dy = sy - cy0;
+        double kx = dx != 0 ? (CTRL_X / 2.0 - side_m) / std::fabs(dx) : 1e9;
+        double ky = dy != 0 ? half_h / std::fabs(dy) : 1e9;
+        double k = std::min(kx, ky);
+        int32_t ex = (int32_t)(CTRL_X / 2.0 + dx * k), ey = (int32_t)(cy0 + dy * k);
+        lv_obj_set_pos(m.dot, ex - 5, ey - 5);
+        // flecha: punta hacia afuera, en el color del nodo
+        double len = std::sqrt(dx * dx + dy * dy);
+        double ux = len > 0 ? dx / len : 0, uy = len > 0 ? dy / len : -1;
+        auto &p = arrow_pts_[i];
+        p[0] = {(lv_value_precise_t)(ex + ux * 8 - uy * 5), (lv_value_precise_t)(ey + uy * 8 + ux * 5)};
+        p[1] = {(lv_value_precise_t)(ex + ux * 13), (lv_value_precise_t)(ey + uy * 13)};
+        p[2] = {(lv_value_precise_t)(ex + ux * 8 + uy * 5), (lv_value_precise_t)(ey + uy * 8 - ux * 5)};
+        lv_obj_set_style_line_color(m.arrow, c(color), 0);
+        lv_line_set_points(m.arrow, p.data(), 3);
+        show(m.arrow, true);
+        hits_.push_back({ex, ey, SEL_NODE, n.num, true, i});
     }
+
+    // Lugares ocupados (en coordenadas de la pantalla): coordenadas, norte, franja, botones,
+    // escala, marcadores y la ficha de lo elegido; los nombres buscan un hueco libre
+    lv_area_t va;
+    lv_obj_get_coords(view, &va);
+    std::vector<lv_area_t> placed;
+    for (lv_obj_t *fixed : {coords_, north_, strip_, scale_lbl_}) {
+        if (lv_obj_has_flag(fixed, LV_OBJ_FLAG_HIDDEN))
+            continue;
+        lv_obj_update_layout(fixed);
+        lv_area_t a;
+        lv_obj_get_coords(fixed, &a);
+        placed.push_back(a);
+    }
+    placed.push_back({va.x1 + CTRL_X - 1, va.y1, va.x2, va.y2}); // columna de botones
+    for (auto &h : hits_)
+        placed.push_back({va.x1 + h.x - 6, va.y1 + h.y - 6, va.x1 + h.x + 6, va.y1 + h.y + 6});
+    if (!lv_obj_has_flag(me_dot_, LV_OBJ_FLAG_HIDDEN)) {
+        lv_area_t a;
+        lv_obj_get_coords(me_dot_, &a);
+        placed.push_back(a);
+    }
+    place_selection(placed);
+
+    // Nombres: lo esencial (destino, rastro), luego por tipo (equipo, compartidos, míos, red)
+    // y los marcados uno por uno; lo elegido no, porque ya lo dice su ficha
+    struct Want {
+        lv_obj_t *label;
+        std::string text;
+        int32_t x, y;
+        int prio;
+        bool edge;
+    };
+    std::vector<Want> want;
+    size_t wp_named = 0;
+    for (auto &h : hits_) {
+        if (h.kind == sel_kind_ && h.id == sel_id_)
+            continue;
+        if (h.kind == SEL_WP) {
+            const Waypoint &w = *wv[h.mark].w;
+            bool theirs = !w.from.empty();
+            bool key = (nav_.on && nav_.wp == w.id) || highlight_wp_ == w.id;
+            bool pin = pinned(st.map_name_wps, w.id);
+            bool type = (st.map_names & (theirs ? MAP_NAMES_SHARED : MAP_NAMES_MINE)) && wp_named < MAP_WP_LABELS;
+            if (!key && !pin && !type)
+                continue;
+            if (type && !key && !pin)
+                wp_named++;
+            want.push_back({wp_marks_[h.mark].label, theirs ? w.name + " \xC2\xB7 " + w.from : w.name, h.x, h.y,
+                            key ? 0 : pin ? 1 : 3, false});
+        } else {
+            const TeamNode &n = *list[h.mark].n;
+            bool key = (nav_.on && nav_.node == n.num) || trail_node_ == n.num;
+            bool pin = pinned(st.map_name_nodes, n.num);
+            bool type = st.map_names & (n.in_team ? MAP_NAMES_TEAM : MAP_NAMES_OTHERS);
+            if (!key && !pin && !type)
+                continue;
+            want.push_back({team_marks_[h.mark].label, h.edge ? n.name + " " + format_distance(n.dist_m) : n.name, h.x,
+                            h.y, key ? 0 : pin ? 1 : n.in_team ? 2 : 4, h.edge});
+        }
+    }
+    std::stable_sort(want.begin(), want.end(), [](const Want &a, const Want &b) { return a.prio < b.prio; });
+    int32_t ymin = strip_on ? 22 : 2, ymax = MAP_H - 16;
+    for (auto &wn : want) {
+        set_text(wn.label, wn.text);
+        lv_obj_update_layout(wn.label);
+        int32_t w = lv_obj_get_width(wn.label), h = lv_obj_get_height(wn.label);
+        // a la derecha, a la izquierda, arriba o abajo del marcador; el primer hueco libre
+        const int32_t cand[4][2] = {{wn.x + 8, wn.y - h / 2}, {wn.x - 8 - w, wn.y - h / 2},
+                                    {wn.x - w / 2, wn.y - 8 - h}, {wn.x - w / 2, wn.y + 8}};
+        int best = -1;
+        for (int k = 0; k < 4 && best < 0; k++) {
+            int32_t x = cand[k][0], y = cand[k][1];
+            if (x < 2 || x + w > CTRL_X - 2 || y < ymin || y + h > ymax)
+                continue;
+            lv_area_t a{va.x1 + x, va.y1 + y, va.x1 + x + w - 1, va.y1 + y + h - 1};
+            bool hit = false;
+            for (auto &p : placed)
+                hit |= a.x1 <= p.x2 && a.x2 >= p.x1 && a.y1 <= p.y2 && a.y2 >= p.y1;
+            if (!hit)
+                best = k;
+        }
+        if (best < 0 && wn.prio > 1)
+            continue; // sin lugar: solo el marcador (al acercar el mapa, aparece)
+        int32_t x = best >= 0 ? cand[best][0] : std::clamp(cand[0][0], (int32_t)2, CTRL_X - 2 - w);
+        int32_t y = best >= 0 ? cand[best][1] : std::clamp(cand[0][1], ymin, ymax - h);
+        if (best < 0 && x + w > CTRL_X - 2)
+            x = std::clamp(cand[1][0], (int32_t)2, CTRL_X - 2 - w);
+        lv_obj_set_pos(wn.label, x, y);
+        show(wn.label, true);
+        placed.push_back({va.x1 + x, va.y1 + y, va.x1 + x + w - 1, va.y1 + y + h - 1});
+    }
+    ui::keep_on_top({sel_ring_, callout_, toast_});
+}
+
+// La ficha de lo elegido, sobre o bajo su marcador
+void MapScreen::place_selection(std::vector<lv_area_t> &placed)
+{
+    const Hit *hit = nullptr;
+    for (auto &h : hits_)
+        if (h.kind == sel_kind_ && h.id == sel_id_)
+            hit = &h;
+    if (!hit) {
+        if (sel_kind_ != SEL_NONE) { // ya no se dibuja (punto borrado, nodo sin posición)
+            sel_kind_ = SEL_NONE;
+            sel_id_ = 0;
+        }
+        show(sel_ring_, false);
+        show(callout_, false);
+        return;
+    }
+    uint32_t color = WP_COLOR;
+    std::string l1, l2;
+    if (hit->kind == SEL_NODE) {
+        for (auto &n : team_nodes())
+            if (n.num == hit->id) {
+                color = !n.in_team ? col::MUTED : (n.stale ? col::AMBER : n.color);
+                l1 = n.name + " \xC2\xB7 " + format_ago(n.heard_ago_s);
+                l2 = n.dist_m >= 0 ? format_distance(n.dist_m) + " " + cardinal(n.bearing_deg) : tr("sin posici\xC3\xB3n");
+                if (n.has_alt && n.dist_m >= 0)
+                    l2 += " \xC2\xB7 " + format_alt_diff(n.alt_diff_m);
+            }
+        set_text(callout_l3_, tr("Enter: ficha \xC2\xB7 \xE2\x80\xB9 \xE2\x80\xBA otro"));
+    } else {
+        for (auto &w : wps())
+            if (w.id == hit->id) {
+                l1 = w.from.empty() ? w.name : w.name + " \xC2\xB7 " + tr("de ") + w.from;
+                if (pos_.valid) {
+                    int32_t d = (int32_t)haversine_m(pos_.lat, pos_.lon, w.lat, w.lon);
+                    l2 = format_distance(d) + " " + cardinal((int)bearing_deg(pos_.lat, pos_.lon, w.lat, w.lon)) +
+                         " \xC2\xB7 " + format_alt_diff(w.alt - pos_.alt);
+                } else
+                    l2 = w.time;
+            }
+        set_text(callout_l3_, tr("Enter: editar \xC2\xB7 \xE2\x80\xB9 \xE2\x80\xBA otro"));
+    }
+    set_text(callout_l1_, l1);
+    set_text(callout_l2_, l2);
+    set_border_color(callout_, color);
+    show(sel_ring_, true);
+    lv_obj_set_pos(sel_ring_, hit->x - 11, hit->y - 11);
+    show(callout_, true);
+    lv_obj_update_layout(callout_);
+    int32_t w = lv_obj_get_width(callout_), h = lv_obj_get_height(callout_);
+    int32_t top = (nav_.on || ruler_) ? 22 : 20;
+    lv_area_t va;
+    lv_obj_get_coords(view, &va);
+    // arriba, abajo, a la derecha o a la izquierda: donde no tape otro marcador ni tu posición
+    const int32_t cand[4][2] = {{hit->x - w / 2, hit->y - 14 - h}, {hit->x - w / 2, hit->y + 14},
+                                {hit->x + 14, hit->y - h / 2}, {hit->x - 14 - w, hit->y - h / 2}};
+    int32_t x = 0, y = 0;
+    for (int k = 0; k < 5; k++) {
+        int kk = k < 4 ? k : 0; // ninguno libre: arriba (o abajo si no cabe)
+        x = std::clamp(cand[kk][0], (int32_t)2, CTRL_X - 3 - w);
+        y = cand[kk][1];
+        if (k == 4 && y < top)
+            y = cand[1][1];
+        y = std::clamp(y, top, MAP_H - 2 - h);
+        if (k == 4)
+            break;
+        lv_area_t a{va.x1 + x, va.y1 + y, va.x1 + x + w - 1, va.y1 + y + h - 1};
+        bool clash = false;
+        for (auto &p : placed) {
+            bool own = p.x1 <= va.x1 + hit->x && p.x2 >= va.x1 + hit->x && p.y1 <= va.y1 + hit->y && p.y2 >= va.y1 + hit->y;
+            if (!own && a.x1 <= p.x2 && a.x2 >= p.x1 && a.y1 <= p.y2 && a.y2 >= p.y1)
+                clash = true;
+        }
+        // la ficha no tapa su propio marcador
+        if (a.x1 <= va.x1 + hit->x + 6 && a.x2 >= va.x1 + hit->x - 6 && a.y1 <= va.y1 + hit->y + 6 && a.y2 >= va.y1 + hit->y - 6)
+            clash = true;
+        if (!clash)
+            break;
+    }
+    lv_obj_set_pos(callout_, x, y);
+    placed.push_back({va.x1 + x, va.y1 + y, va.x1 + x + w - 1, va.y1 + y + h - 1});
+}
+
+void MapScreen::select(uint8_t kind, uint32_t id)
+{
+    sel_kind_ = kind;
+    sel_id_ = id;
+    place_markers();
+}
+
+void MapScreen::clear_selection()
+{
+    if (sel_kind_ == SEL_NONE)
+        return;
+    sel_kind_ = SEL_NONE;
+    sel_id_ = 0;
+    place_markers();
+}
+
+void MapScreen::step_selection(int dir)
+{
+    if (hits_.empty()) {
+        toast(tr("Nada que elegir en esta vista"));
+        return;
+    }
+    // del centro hacia afuera: el más cercano primero
+    std::vector<const Hit *> order;
+    for (auto &h : hits_)
+        order.push_back(&h);
+    auto d2 = [](const Hit *h) {
+        double dx = h->x - CTRL_X / 2.0, dy = h->y - MAP_H / 2.0;
+        return dx * dx + dy * dy + (h->edge ? 1e7 : 0);
+    };
+    std::stable_sort(order.begin(), order.end(), [&](const Hit *a, const Hit *b) { return d2(a) < d2(b); });
+    int cur = -1;
+    for (size_t i = 0; i < order.size(); i++)
+        if (order[i]->kind == sel_kind_ && order[i]->id == sel_id_)
+            cur = (int)i;
+    int n = (int)order.size();
+    int next = cur < 0 ? (dir > 0 ? 0 : n - 1) : (cur + dir + n) % n;
+    select(order[next]->kind, order[next]->id);
+}
+
+void MapScreen::open_selection()
+{
+    uint8_t kind = sel_kind_;
+    uint32_t id = sel_id_;
+    if (kind == SEL_NODE)
+        app_->show_node(id);
+    else if (kind == SEL_WP)
+        open_dialog(DLG_EDIT_POINT, id);
 }
 
 // ------------------------------------------------------------- navegación
@@ -1438,6 +1676,8 @@ void MapScreen::show_panel(int which)
         rebuild_points_panel();
     else if (which == PANEL_ROUTES)
         rebuild_routes_panel();
+    else if (which == PANEL_NAMES)
+        rebuild_names_panel();
     else
         rebuild_layers_panel();
     show(panel_, true);
@@ -1582,6 +1822,100 @@ void MapScreen::rebuild_layers_panel()
     empty_note(panel_list_, tr("M\xC3\xA1s mapas: carpetas /maps/<nombre>/z/x/y.png o archivos .pmtiles en la tarjeta SD."));
 }
 
+// Nombres en el mapa: por tipo (de más a menos importante) y uno por uno
+void MapScreen::rebuild_names_panel()
+{
+    lv_obj_clean(panel_list_);
+    names_rows_.clear();
+    set_text(panel_title_, tr("Nombres en el mapa"));
+    const Settings &st = app_->settings();
+    // tocar una fila cambia su "S\xC3\xAD/No" en el lugar (sin rehacer la lista: no salta el foco)
+    auto toggle_cb = [](lv_event_t *e) {
+        auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+        lv_obj_t *row = (lv_obj_t *)lv_event_get_current_target(e);
+        size_t i = (size_t)(uintptr_t)lv_obj_get_user_data(row);
+        Settings st = s->app_->settings();
+        bool on;
+        if (i < 4) { // por tipo
+            uint8_t bit = (uint8_t)(1u << i);
+            st.map_names ^= bit;
+            on = st.map_names & bit;
+        } else {
+            auto [kind, id] = s->names_rows_[i - 4];
+            auto &v = kind == SEL_NODE ? st.map_name_nodes : st.map_name_wps;
+            auto it = std::find(v.begin(), v.end(), id);
+            on = it == v.end();
+            if (on) {
+                v.push_back(id);
+                if (v.size() > 64)
+                    v.erase(v.begin());
+            } else
+                v.erase(it);
+        }
+        s->app_->update_settings(st);
+        lv_obj_t *right = lv_obj_get_child(row, (int32_t)lv_obj_get_child_count(row) - 1);
+        set_text(right, on ? tr("S\xC3\xAD") : tr("No"));
+        s->update_names_button();
+        s->place_markers();
+    };
+    static const char *const TYPES[4][2] = {
+        {"Mi equipo", "sus nombres siempre a la vista"},
+        {"Puntos compartidos", "los que te env\xC3\xAD" "an otros equipos"},
+        {"Mis puntos", "los que marcaste en este equipo"},
+        {"Otros nodos de la red", "fuera de tu equipo"}};
+    for (size_t i = 0; i < 4; i++) {
+        bool on = st.map_names & (1u << i);
+        lv_obj_t *r = list_row(panel_list_, group, false, tr(TYPES[i][0]), tr(TYPES[i][1]), on ? tr("S\xC3\xAD") : tr("No"));
+        lv_obj_set_user_data(r, (void *)(uintptr_t)i);
+        lv_obj_add_event_cb(r, toggle_cb, LV_EVENT_CLICKED, this);
+    }
+    empty_note(panel_list_, tr("Uno por uno (siempre con nombre, aunque su tipo no lo tenga):"));
+    // compañeros y puntos, los más cercanos primero (hasta 40)
+    struct Item {
+        uint8_t kind;
+        uint32_t id;
+        std::string name, detail;
+        double d;
+    };
+    std::vector<Item> items;
+    for (auto &n : team_nodes())
+        if (n.in_team && n.has_pos)
+            items.push_back({SEL_NODE, n.num, n.name,
+                             std::string(tr("compa\xC3\xB1" "ero")) + " \xC2\xB7 " + format_distance(n.dist_m) + " " + cardinal(n.bearing_deg),
+                             (double)n.dist_m});
+    for (auto &w : wps()) {
+        double d = pos_.valid ? haversine_m(pos_.lat, pos_.lon, w.lat, w.lon) : 0;
+        std::string detail = std::string(tr("punto")) + (pos_.valid ? " \xC2\xB7 " + format_distance((int32_t)d) : std::string());
+        if (!w.from.empty())
+            detail += " \xC2\xB7 " + std::string(tr("de ")) + w.from;
+        items.push_back({SEL_WP, w.id, w.name, detail, d});
+    }
+    std::stable_sort(items.begin(), items.end(), [](const Item &a, const Item &b) {
+        return a.kind != b.kind ? a.kind < b.kind : a.d < b.d;
+    });
+    if (items.size() > 40)
+        items.resize(40);
+    for (auto &it : items) {
+        const auto &v = it.kind == SEL_NODE ? st.map_name_nodes : st.map_name_wps;
+        bool on = std::find(v.begin(), v.end(), it.id) != v.end();
+        lv_obj_t *r = list_row(panel_list_, group, false, it.name, it.detail, on ? tr("S\xC3\xAD") : tr("No"));
+        lv_obj_set_user_data(r, (void *)(uintptr_t)(4 + names_rows_.size()));
+        names_rows_.push_back({it.kind, it.id});
+        lv_obj_add_event_cb(r, toggle_cb, LV_EVENT_CLICKED, this);
+    }
+}
+
+// "Aa" lleno cuando hay nombres a la vista sin elegir nada
+void MapScreen::update_names_button()
+{
+    if (!btn_names_)
+        return;
+    const Settings &st = app_->settings();
+    bool any = st.map_names || !st.map_name_nodes.empty() || !st.map_name_wps.empty();
+    set_bg(btn_names_, any ? col::INK : col::SURF);
+    set_color(names_lbl_, any ? col::SURF : col::INK);
+}
+
 void MapScreen::set_team_only(bool on)
 {
     if (team_only_ == on)
@@ -1595,7 +1929,12 @@ void MapScreen::toast(const std::string &msg)
 {
     set_text(toast_, msg);
     show(toast_, true);
-    ui::align(toast_, LV_ALIGN_TOP_MID, 0, (nav_.on || ruler_) ? 46 : 26);
+    // abajo, sobre la escala; si lo elegido está abajo, arriba (bajo las coordenadas)
+    bool sel_low = !lv_obj_has_flag(sel_ring_, LV_OBJ_FLAG_HIDDEN) && lv_obj_get_y(sel_ring_) > MAP_H / 2;
+    if (sel_low)
+        ui::align(toast_, LV_ALIGN_TOP_MID, -(MAP_W - CTRL_X) / 2, (nav_.on || ruler_) ? 46 : 26);
+    else
+        ui::align(toast_, LV_ALIGN_BOTTOM_MID, -(MAP_W - CTRL_X) / 2, -22);
     lv_obj_move_foreground(toast_);
     if (toast_timer_)
         lv_timer_delete(toast_timer_);
@@ -1626,12 +1965,28 @@ void MapScreen::on_view(lv_event_t *e)
             s->drag_ += std::abs(v.x) + std::abs(v.y);
             s->pan(v.x, v.y);
         }
-    } else if (code == LV_EVENT_CLICKED && s->ruler_ && s->drag_ < 6) {
+    } else if (code == LV_EVENT_CLICKED && s->drag_ < 6) {
         lv_point_t p;
         lv_indev_get_point(in, &p);
         lv_area_t a;
         lv_obj_get_coords(s->view, &a);
-        s->ruler_tap(p.x - a.x1, p.y - a.y1);
+        int32_t x = p.x - a.x1, y = p.y - a.y1;
+        if (s->ruler_) {
+            s->ruler_tap(x, y);
+            return;
+        }
+        // tocar un marcador lo elige (el más cercano, a menos de 14 px); tocar fuera, nada
+        const Hit *best = nullptr;
+        int32_t bd = 14 * 14 + 1;
+        for (auto &h : s->hits_) {
+            int32_t d = (h.x - x) * (h.x - x) + (h.y - y) * (h.y - y);
+            if (d < bd)
+                bd = d, best = &h;
+        }
+        if (best)
+            s->select(best->kind, best->id);
+        else
+            s->clear_selection();
     }
 }
 
@@ -1641,8 +1996,11 @@ void MapScreen::on_key(lv_event_t *e)
     uint32_t k = lv_event_get_key(e);
     const int32_t step = 48;
     bool arrows = k == LV_KEY_LEFT || k == LV_KEY_RIGHT || k == LV_KEY_UP || k == LV_KEY_DOWN;
-    if (arrows && !s->pan_mode())
-        return; // sin "tomar" el mapa, las flechas no lo mueven
+    if (arrows && !s->pan_mode()) { // sin "tomar" el mapa, ‹ › recorren los marcadores
+        if (k == LV_KEY_LEFT || k == LV_KEY_RIGHT)
+            s->step_selection(k == LV_KEY_RIGHT ? 1 : -1);
+        return;
+    }
     switch (k) {
     case LV_KEY_LEFT:
         s->pan(step, 0);
@@ -1659,6 +2017,8 @@ void MapScreen::on_key(lv_event_t *e)
     case LV_KEY_ENTER:
         if (s->ruler_)
             s->ruler_tap(MAP_W / 2, MAP_H / 2); // marca en la cruz del centro
+        else if (s->sel_kind_ != SEL_NONE && !s->pan_mode_)
+            s->open_selection(); // con algo elegido: su ficha
         else
             s->set_pan_mode(!s->pan_mode_); // clic: entrar o salir de "mover el mapa"
         break;
@@ -2234,6 +2594,10 @@ bool MapScreen::handle_esc()
     }
     if (pan_mode_) {
         set_pan_mode(false);
+        return true;
+    }
+    if (sel_kind_ != SEL_NONE) {
+        clear_selection();
         return true;
     }
     return false;

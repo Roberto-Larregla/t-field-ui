@@ -4,6 +4,8 @@
 #include "tfield/model.h"
 #include "tfield/theme.h"
 
+#include <array>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -80,7 +82,17 @@ class MapScreen {
   private:
     struct NodeMarker {
         lv_obj_t *dot, *label;
+        lv_obj_t *arrow = nullptr; // fuera de la vista: flecha hacia donde está
     };
+    // Marcador dibujado (para tocarlo o recorrerlos con ‹ ›)
+    struct Hit {
+        int32_t x, y;  // centro, en el área del mapa
+        uint8_t kind;  // SEL_NODE o SEL_WP
+        uint32_t id;   // número de nodo o id del punto
+        bool edge;     // nodo fuera de la vista, en el borde
+        size_t mark;   // índice en team_marks_ o wp_marks_
+    };
+    enum SelKind : uint8_t { SEL_NONE = 0, SEL_NODE, SEL_WP };
     struct Nav { // destino de navegación
         bool on = false;
         uint32_t wp = 0;    // id de punto, o 0
@@ -91,7 +103,7 @@ class MapScreen {
         int32_t alt = 0;
     };
     enum DlgKind { DLG_NONE = 0, DLG_NEW_POINT, DLG_EDIT_POINT, DLG_ROUTE, DLG_EDIT_ROUTE };
-    enum PanelKind { PANEL_NONE = 0, PANEL_POINTS, PANEL_LAYERS, PANEL_ROUTES };
+    enum PanelKind { PANEL_NONE = 0, PANEL_POINTS, PANEL_LAYERS, PANEL_ROUTES, PANEL_NAMES };
 
     // Polilínea dibujada en trozos de pocos puntos, cada uno con su propio rectángulo: al
     // agregar un punto a la ruta solo se redibuja el último trozo, y cuando cambia un área
@@ -136,6 +148,14 @@ class MapScreen {
     void rebuild_points_panel();
     void rebuild_layers_panel();
     void rebuild_routes_panel();
+    void rebuild_names_panel();
+    // elegir un marcador: anillo y ficha con nombre, distancia y desnivel
+    void select(uint8_t kind, uint32_t id);
+    void clear_selection();
+    void step_selection(int dir);  // ‹ › : el siguiente o el anterior, del centro hacia afuera
+    void open_selection();         // Enter o tocar la ficha
+    void place_selection(std::vector<lv_area_t> &placed);
+    void update_names_button();
     bool to_screen(double lat, double lon, int32_t &sx, int32_t &sy) const;
     void line_points(Proj &c, const std::vector<TrackPoint> &pts, std::vector<lv_point_precise_t> &out);
     void set_nav_to_waypoint(const Waypoint &w);
@@ -199,6 +219,14 @@ class MapScreen {
     lv_obj_t *me_halo_ = nullptr, *me_dot_ = nullptr, *cross_ = nullptr;
     std::vector<NodeMarker> team_marks_;
     std::vector<NodeMarker> wp_marks_;
+    std::deque<std::array<lv_point_precise_t, 3>> arrow_pts_; // LVGL guarda el puntero: no se mueven
+    std::vector<Hit> hits_;
+    uint8_t sel_kind_ = SEL_NONE;
+    uint32_t sel_id_ = 0;
+    lv_obj_t *sel_ring_ = nullptr, *callout_ = nullptr, *callout_l1_ = nullptr, *callout_l2_ = nullptr,
+             *callout_l3_ = nullptr;
+    lv_obj_t *btn_names_ = nullptr, *names_lbl_ = nullptr;
+    std::vector<std::pair<uint8_t, uint32_t>> names_rows_; // filas "uno por uno" del panel Nombres
     lv_obj_t *coords_ = nullptr, *strip_ = nullptr, *strip_lbl_ = nullptr;
     lv_obj_t *scale_bar_ = nullptr, *scale_lbl_ = nullptr, *attrib_ = nullptr, *north_ = nullptr;
     lv_obj_t *layer_btn_lbl_ = nullptr;

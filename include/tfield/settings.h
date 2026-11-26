@@ -32,6 +32,9 @@ struct ChannelMember {
     uint32_t epoch = 0; // cuándo se invitó o se unió (UTC)
 };
 
+// Tipos de nombres en el mapa, de más a menos importante
+enum : uint8_t { MAP_NAMES_TEAM = 1, MAP_NAMES_SHARED = 2, MAP_NAMES_MINE = 4, MAP_NAMES_OTHERS = 8 };
+
 struct Settings {
     // Pantalla y teclado
     uint8_t brightness = 70;    // 10..100 %
@@ -49,6 +52,10 @@ struct Settings {
     bool team_first = true;
     // Mapa y puntos
     bool map_team_only = false;
+    // Nombres en el mapa (el mapa va limpio: el nombre de algo se ve al elegirlo). Por tipo
+    // (MAP_NAMES_*) y uno por uno (nodos y puntos marcados "siempre con nombre", máx. 64)
+    uint8_t map_names = 0;
+    std::vector<uint32_t> map_name_nodes, map_name_wps;
     PointPolicy pts_team = PointPolicy::Auto;
     PointPolicy pts_others = PointPolicy::Ask;
     bool share_all_team = true;

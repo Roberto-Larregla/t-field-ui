@@ -195,6 +195,15 @@ std::string settings_to_text(const Settings &s)
     for (uint32_t n : s.kept_chats)
         kept += (kept.empty() ? "" : ",") + std::to_string(n);
     puts("chats", kept);
+    put("map_names", s.map_names);
+    auto join = [](const std::vector<uint32_t> &v) {
+        std::string out;
+        for (uint32_t n : v)
+            out += (out.empty() ? "" : ",") + std::to_string(n);
+        return out;
+    };
+    puts("map_name_nodes", join(s.map_name_nodes));
+    puts("map_name_wps", join(s.map_name_wps));
     put("channel_on", s.channel.on);
     puts("channel_name", s.channel.name);
     puts("channel_chat", s.channel.chat_id);
@@ -283,8 +292,10 @@ Settings settings_from_text(const std::string &text)
         else if (k == "sos_public") flag(s.sos_public);
         else if (k == "sos_team_ch") flag(s.sos_team_ch);
         else if (k == "sos_every_min") u8(s.sos_every_min, 1, 60);
-        else if (k == "team" || k == "chats") {
-            std::vector<uint32_t> &list = k == "team" ? s.team : s.kept_chats;
+        else if (k == "map_names") u8(s.map_names, 0, 15);
+        else if (k == "team" || k == "chats" || k == "map_name_nodes" || k == "map_name_wps") {
+            std::vector<uint32_t> &list = k == "team" ? s.team : k == "chats" ? s.kept_chats
+                                        : k == "map_name_nodes" ? s.map_name_nodes : s.map_name_wps;
             list.clear();
             const char *p = v.c_str();
             while (*p) {
@@ -296,8 +307,9 @@ Settings settings_from_text(const std::string &text)
                     list.push_back((uint32_t)t);
                 p = *e == ',' ? e + 1 : e;
             }
-            if (k == "chats" && list.size() > 32)
-                list.erase(list.begin(), list.end() - 32);
+            size_t cap = k == "chats" ? 32 : k == "team" ? 0 : 64;
+            if (cap && list.size() > cap)
+                list.erase(list.begin(), list.end() - cap);
         } else if (k == "channel_on") flag(s.channel.on);
         else if (k == "channel_name") {
             if (!v.empty())
