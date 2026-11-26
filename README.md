@@ -19,7 +19,7 @@ The interface comes in **English and Spanish**, with a **light, dark or automati
 
 ## Features
 
-- **Home:** time, remaining daylight, own battery and GPS; distance, bearing, height difference, battery and signal for each teammate; latest chats and quick replies.
+- **Home:** colored tiles that are also the shortcuts (1 Messages, 2 Team, 3 Map, 4 Settings, SOS). Time, a daylight bar from sunrise to sunset, own battery and GPS; distance, bearing, height difference, battery and signal for each teammate; latest chats and quick replies; the Map tile shows when a track is being recorded.
 - **Messages:** chats and channels, editable quick replies, a byte counter (Meshtastic's real limit) and shared waypoints you can open on the map. Delete one chat (press twice), all chats, or messages older than 1, 7 or 30 days.
 - **Map:** base map tiles from the SD card or a UTM grid; waypoints (P1, P2…), recorded GPX tracks (R1, R2…), a ruler, a navigation target and each teammate's trail.
 - **Team:** "my team" and the whole mesh; a card for each node, request positions from everyone, and traceroute.
@@ -103,7 +103,7 @@ To make tiles from your own maps in [QGIS](https://qgis.org): *Processing Toolbo
 
 ### 5. First setup on the device
 
-Settings is the fourth tab on the home screen (or the `4` key).
+Settings is tile 4 on the home screen (or the `4` key).
 
 1. **Settings › Display:** language, theme and brightness.
 2. **Settings › Advanced:** the **LoRa region** of your country (see [Meshtastic's list](https://meshtastic.org/docs/configuration/region-by-country/)) and the **preset**. Every device in the group needs the same region and preset. Applying restarts the radio.
@@ -136,6 +136,13 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
   -r 0x20-0x7E -r 0xA0-0xFF -r 0x2013,0x2014,0x2022,0x2026,0x2039,0x203A,0x2212 \
   --format lvgl --lv-include lvgl.h --lv-font-name tfield_font_12 -o tfield_font_12.c
 ```
+
+The home-screen pictograms (`tfield_pictos.c`) come from Tabler Icons via `pictos.py` (needs `rsvg-convert` and Pillow):
+
+```sh
+npm pack @tabler/icons@3 && tar xzf tabler-icons-*.tgz
+python3 pictos.py package/icons/outline > tfield_pictos.c
+```
 </details>
 
 ## Credits
@@ -144,6 +151,7 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
 - Developed with help from **Claude**.
 - [LVGL](https://lvgl.io) (MIT) and [Meshtastic](https://meshtastic.org) (GPL-3.0).
 - [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/) font by the Braille Institute (SIL Open Font License 1.1, see `fonts/OFL.txt`).
+- Pictograms from [Tabler Icons](https://tabler.io/icons) (MIT).
 
 ## License
 

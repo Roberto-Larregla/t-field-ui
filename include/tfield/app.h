@@ -37,6 +37,7 @@ class HomeScreen {
     void set_team(const std::vector<TeamNode> &team);
     void set_chats(const std::vector<Chat> &chats);
     void set_quick(const QuickReplies &q);
+    void set_recording(bool on); // ficha Mapa: "Grabando" mientras se registra una ruta
     void notify_sent(const std::string &to, const std::string &text);
     std::string selected_id() const;
     void clear_sent();
@@ -57,11 +58,14 @@ class HomeScreen {
     static void on_chat(lv_event_t *e);
     static void on_chip(lv_event_t *e);
     static void on_tab(lv_event_t *e);
+    lv_obj_t *tile(int i, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color, const char *num,
+                   const char *title, lv_obj_t **right);
 
     App *app_ = nullptr;
-    lv_obj_t *clock_, *day_, *month_, *sun_dot_, *daylight_, *sunset_, *name_, *bat_, *bat_pct_, *gps_;
-    lv_obj_t *team_title_, *team_list_, *chat_badge_, *chat_list_, *team_empty_ = nullptr;
-    lv_obj_t *quick_label_;
+    lv_obj_t *clock_, *date_, *daylight_, *rise_, *set_, *bar_, *bar_left_, *now_mark_;
+    lv_obj_t *name_, *bat_, *bat_pct_, *gps_;
+    lv_obj_t *team_count_, *team_list_, *chat_badge_, *chat_list_, *team_empty_ = nullptr;
+    lv_obj_t *quick_label_, *rec_label_ = nullptr, *rec_dot_ = nullptr;
     lv_obj_t *chips_[4]{}, *chip_labels_[4]{}, *tabs_[4]{}, *sos_ = nullptr;
     std::vector<TeamRow> team_rows_;
     std::vector<ChatRow> chat_rows_;

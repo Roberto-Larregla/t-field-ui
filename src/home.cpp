@@ -1,35 +1,99 @@
-// Pantalla de inicio: estado, equipo, chats, respuestas rápidas y pestañas.
+// Pantalla de inicio "Mosaico": cabecera con hora y barra de luz del día, y fichas de color
+// que a la vez son los accesos (1 Mensajes, 2 Equipo, 3 Mapa, 4 Ajustes) más el SOS.
+//
+//   0 ┌ 14:32  vie 20 nov · 5 h 54 de luz        GEO1 ┐
+//     │        06:27 ▬▬▬▬▬▬|▬▬▬▬ 20:26     ▭ 82% GPS 9 │
+//  35 ├ 1 Mensajes ─────────────┬ 2 Equipo ─────────┤
+//     │ chats (3 a la vista)     │ equipo (3 a la    │
+//     │                          │ vista)            │
+// 160 ├ Responder a …  ──────────┼ 3 Mapa ─┬ 4 Ajus ─┤
+//     │ [resp. 1]   [resp. 2]    │ (dibujo)├─────────┤
+//     │ [resp. 3]   [resp. 4]    │         │   SOS   │
+// 238 └──────────────────────────┴─────────┴─────────┘
 #include "tfield/app.h"
 #include "tfield/i18n.h"
 #include "tfield/format.h"
 #include "tfield/ui.h"
 
 #include <cstdio>
+#include <cstdlib>
+
+LV_IMAGE_DECLARE(tfield_picto_mail);
+LV_IMAGE_DECLARE(tfield_picto_users);
+LV_IMAGE_DECLARE(tfield_picto_map);
+LV_IMAGE_DECLARE(tfield_picto_settings);
 
 namespace tfield {
 
 using namespace ui;
 
-static constexpr int32_t TOP_H = 33;   // franja de estado (incluye línea)
-static constexpr int32_t MID_Y = 34;
-static constexpr int32_t MID_H = 105;
-static constexpr int32_t TEAM_W = 172;
-static constexpr int32_t HDR_H = 16;
-static constexpr int32_t ROW_H = 29;
-static constexpr int32_t QUICK_Y = 139;
-static constexpr int32_t QUICK_H = 74;
-static constexpr int32_t NAV_Y = 213;
+static constexpr int32_t TOP_H = 33;   // cabecera (incluye línea)
+static constexpr int32_t GAP = 3;      // separación entre fichas
+static constexpr int32_t ROW1_Y = 35, ROW1_H = 122;
+static constexpr int32_t ROW2_Y = ROW1_Y + ROW1_H + GAP, ROW2_H = 78;
+static constexpr int32_t LEFT_W = 196;                // Mensajes y respuestas
+static constexpr int32_t RIGHT_X = GAP + LEFT_W + GAP; // Equipo, Mapa, Ajustes, SOS
+static constexpr int32_t RIGHT_W = SCREEN_W - GAP - RIGHT_X;
+static constexpr int32_t MAP_W = 62;
+static constexpr int32_t SIDE_X = RIGHT_X + MAP_W + GAP, SIDE_W = SCREEN_W - GAP - SIDE_X;
+static constexpr int32_t BAND_H = 18; // franja de color con número, dibujo y nombre
+static constexpr int32_t ROW_H = 34;  // fila de chat o de equipo (2 renglones)
+static constexpr int32_t BAR_X = 103, BAR_W = 78; // barra de luz del día
 
-struct TabDef {
-    const char *num;
-    const char *label;
-    uint32_t color;
-    ScreenId target;
-};
-static const TabDef TABS[4] = {{"1", "Mensajes", col::BLUE, ScreenId::Messages},
-                               {"2", "Mapa", col::GREEN, ScreenId::Map},
-                               {"3", "Equipo", col::PURPLE, ScreenId::Team},
-                               {"4", "Ajustes", col::SLATE, ScreenId::Settings}}; // se traducen al dibujar
+static const lv_image_dsc_t *picto(int i)
+{
+    static const lv_image_dsc_t *p[] = {&tfield_picto_mail, &tfield_picto_users, &tfield_picto_map,
+                                        &tfield_picto_settings};
+    return p[i];
+}
+
+// Dibujo A8: toma el color de image_recolor (sirve igual en modo claro y oscuro)
+static lv_obj_t *picto_img(lv_obj_t *parent, int i, int32_t x, int32_t y, uint32_t color)
+{
+    lv_obj_t *img = lv_image_create(parent);
+    lv_image_set_src(img, picto(i));
+    lv_obj_set_pos(img, x, y);
+    lv_obj_set_style_image_recolor(img, c(color), 0);
+    lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
+    return img;
+}
+
+// Cuadrito blanco con el número del acceso (la tecla que lo abre)
+static void num_square(lv_obj_t *parent, int32_t x, int32_t y, const char *num, uint32_t color)
+{
+    lv_obj_t *sq = box(parent, x, y, 13, 13, col::SURF);
+    lv_obj_set_style_radius(sq, 2, 0);
+    lv_obj_center(label(sq, &tfield_font_12b, color, num));
+}
+
+// Destinos de las fichas, en el orden de sus números
+static const ScreenId TARGETS[4] = {ScreenId::Messages, ScreenId::Team, ScreenId::Map, ScreenId::Settings};
+
+// Ficha con franja de color arriba (la franja es el acceso; el cuerpo, una lista)
+lv_obj_t *HomeScreen::tile(int i, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color, const char *num,
+                           const char *title, lv_obj_t **right)
+{
+    lv_obj_t *t = box(screen, x, y, w, h, color);
+    lv_obj_set_style_radius(t, 4, 0);
+    lv_obj_t *band = button(t, 0, 0, w, BAND_H, color, 0, nullptr);
+    lv_obj_set_style_radius(band, 4, 0);
+    lv_obj_set_style_bg_color(band, c(color == col::BLUE ? col::BLUE_DK : 0x2A2070), LV_STATE_PRESSED);
+    num_square(band, 3, 2, num, color);
+    picto_img(band, i, 19, 2, col::SURF);
+    lv_obj_t *l = label(band, &tfield_font_12b, col::SURF, title);
+    lv_obj_set_pos(l, 36, 1);
+    if (right) {
+        *right = label(band, &tfield_font_12b, col::SURF, "");
+        ui::align(*right, LV_ALIGN_TOP_RIGHT, -5, 1);
+    }
+    lv_obj_set_user_data(band, (void *)(intptr_t)i);
+    lv_obj_add_event_cb(band, on_tab, LV_EVENT_CLICKED, this);
+    tabs_[i] = band;
+    lv_obj_t *body = box(t, 1, BAND_H, w - 2, h - BAND_H - 1, col::SURF);
+    lv_obj_set_style_radius(body, 3, 0);
+    return body;
+}
 
 void HomeScreen::create(App *app)
 {
@@ -41,75 +105,68 @@ void HomeScreen::create(App *app)
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
     group = lv_group_create();
 
-    // --- Franja de estado
+    // --- Cabecera: hora, fecha, luz del día, nodo propio
     lv_obj_t *top = box(screen, 0, 0, SCREEN_W, TOP_H, col::SURF);
     border(top, col::INK, 1, LV_BORDER_SIDE_BOTTOM);
     clock_ = label(top, &tfield_font_24b, col::INK, "--:--");
     lv_obj_set_pos(clock_, 6, 2);
-    day_ = label(top, &tfield_font_12, col::INK2, "");
-    lv_obj_set_pos(day_, 70, 3);
-    month_ = label(top, &tfield_font_12, col::INK2, "");
-    lv_obj_set_pos(month_, 70, 16);
-    box(top, 108, 6, 1, 20, col::LINE);
-    sun_dot_ = box(top, 116, 6, 8, 8, col::AMBER);
-    lv_obj_set_style_radius(sun_dot_, LV_RADIUS_CIRCLE, 0);
-    daylight_ = label(top, &tfield_font_14b, col::INK, "");
-    lv_obj_set_pos(daylight_, 128, 1);
-    sunset_ = label(top, &tfield_font_12, col::INK2, "");
-    lv_obj_set_pos(sunset_, 116, 17);
+    date_ = label(top, &tfield_font_12, col::INK2, "");
+    lv_obj_set_pos(date_, 72, 2);
+    daylight_ = label(top, &tfield_font_12b, col::AMBER, "");
     name_ = label(top, &tfield_font_12b, col::INK, "");
-    ui::align(name_, LV_ALIGN_TOP_RIGHT, -6, 3);
+    ui::align(name_, LV_ALIGN_TOP_RIGHT, -6, 2);
+    // barra: de la salida a la puesta del sol; gris lo que pasó, ámbar la luz que queda
+    rise_ = label(top, &tfield_font_12, col::INK2, "");
+    lv_obj_set_pos(rise_, 72, 16);
+    bar_ = box(top, BAR_X, 21, BAR_W, 6, col::LINE);
+    lv_obj_set_style_radius(bar_, 3, 0);
+    lv_obj_set_style_clip_corner(bar_, true, 0);
+    bar_left_ = box(bar_, 0, 0, 0, 6, col::AMBER);
+    now_mark_ = box(top, BAR_X, 18, 2, 12, col::INK);
+    set_ = label(top, &tfield_font_12, col::INK2, "");
+    lv_obj_set_pos(set_, BAR_X + BAR_W + 3, 16);
     gps_ = label(top, &tfield_font_12b, col::INK, "");
     ui::align(gps_, LV_ALIGN_TOP_RIGHT, -6, 16);
     bat_pct_ = label(top, &tfield_font_12b, col::INK, "");
     bat_ = battery(top, 0, 0);
 
-    // --- Equipo
-    lv_obj_t *team = box(screen, 0, MID_Y, TEAM_W, MID_H, col::SURF);
-    border(team, col::INK, 1, LV_BORDER_SIDE_RIGHT);
-    lv_obj_t *th = box(team, 0, 0, TEAM_W - 1, HDR_H, col::BG);
-    team_title_ = label(th, &tfield_font_12b, col::INK, tr("Equipo"));
-    lv_obj_set_pos(team_title_, 5, 1);
-    lv_obj_t *sort = label(th, &tfield_font_12, col::INK2, tr("por distancia"));
-    ui::align(sort, LV_ALIGN_TOP_RIGHT, -5, 1);
-    team_list_ = box(team, 0, HDR_H, TEAM_W - 1, MID_H - HDR_H, col::SURF);
+    // --- 1 Mensajes
+    lv_obj_t *msg = tile(0, GAP, ROW1_Y, LEFT_W, ROW1_H, col::BLUE, "1", tr("Mensajes"), &chat_badge_);
+    chat_list_ = box(msg, 0, 0, LEFT_W - 2, ROW1_H - BAND_H - 1, col::SURF);
+    lv_obj_set_style_bg_opa(chat_list_, LV_OPA_TRANSP, 0);
+    lv_obj_add_flag(chat_list_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(chat_list_, LV_SCROLLBAR_MODE_ACTIVE);
+    lv_obj_set_flex_flow(chat_list_, LV_FLEX_FLOW_COLUMN);
+
+    // --- 2 Equipo
+    lv_obj_t *team = tile(1, RIGHT_X, ROW1_Y, RIGHT_W, ROW1_H, col::PURPLE, "2", tr("Equipo"), &team_count_);
+    team_list_ = box(team, 0, 0, RIGHT_W - 2, ROW1_H - BAND_H - 1, col::SURF);
+    lv_obj_set_style_bg_opa(team_list_, LV_OPA_TRANSP, 0);
     lv_obj_add_flag(team_list_, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(team_list_, LV_SCROLLBAR_MODE_ACTIVE);
     lv_obj_set_flex_flow(team_list_, LV_FLEX_FLOW_COLUMN);
     // sin equipo todavía (primer encendido): cómo armarlo
     team_empty_ = label(team, &tfield_font_12, col::INK2, tr("Sin equipo todav\xC3\xAD" "a.\nM\xC3\xA1rcalo en Equipo \xE2\x80\xBA Toda la red \xE2\x80\xBA ficha del nodo."));
-    lv_obj_set_pos(team_empty_, 6, HDR_H + 6);
-    lv_obj_set_width(team_empty_, TEAM_W - 14);
+    lv_obj_set_pos(team_empty_, 5, 4);
+    lv_obj_set_width(team_empty_, RIGHT_W - 12);
     lv_label_set_long_mode(team_empty_, LV_LABEL_LONG_MODE_WRAP);
     show(team_empty_, false);
 
-    // --- Mensajes
-    int32_t cx = TEAM_W + 1, cw = SCREEN_W - cx;
-    lv_obj_t *chats = box(screen, cx, MID_Y, cw, MID_H, col::SURF);
-    lv_obj_t *ch = box(chats, 0, 0, cw, HDR_H, col::BG);
-    lv_obj_t *ct = label(ch, &tfield_font_12b, col::INK, tr("Mensajes"));
-    lv_obj_set_pos(ct, 5, 1);
-    chat_badge_ = label(ch, &tfield_font_12b, col::BLUE, "");
-    ui::align(chat_badge_, LV_ALIGN_TOP_RIGHT, -5, 1);
-    chat_list_ = box(chats, 0, HDR_H, cw, MID_H - HDR_H, col::SURF);
-    lv_obj_add_flag(chat_list_, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_scrollbar_mode(chat_list_, LV_SCROLLBAR_MODE_ACTIVE);
-    lv_obj_set_flex_flow(chat_list_, LV_FLEX_FLOW_COLUMN);
-
-    // --- Respuestas rápidas
-    lv_obj_t *q = box(screen, 0, QUICK_Y, SCREEN_W, QUICK_H, col::SURF);
-    border(q, col::INK, 1, LV_BORDER_SIDE_TOP);
+    // --- Respuestas rápidas (máximo QUICK_MAX_CHARS: caben completas en el botón)
+    lv_obj_t *q = box(screen, GAP, ROW2_Y, LEFT_W, ROW2_H, col::SURF);
+    lv_obj_set_style_radius(q, 4, 0);
+    border(q, col::BLUE, 1);
     quick_label_ = label(q, &tfield_font_12b, col::INK2, tr("Elige un chat para responder"));
-    lv_obj_set_pos(quick_label_, 5, 3);
-    lv_obj_set_size(quick_label_, SCREEN_W - 10, 14);
+    lv_obj_set_pos(quick_label_, 5, 2);
+    lv_obj_set_size(quick_label_, LEFT_W - 10, 14);
     lv_label_set_long_mode(quick_label_, LV_LABEL_LONG_MODE_DOTS);
     for (int i = 0; i < 4; i++) {
-        int32_t x = (i % 2) ? 161 : 4, y = (i / 2) ? 46 : 19, w = (i % 2) ? 155 : 154;
-        chips_[i] = button(q, x, y, w, 24, col::SURF, col::BLUE, nullptr);
+        int32_t x = (i % 2) ? 98 : 2, y = (i / 2) ? 47 : 18, w = 94;
+        chips_[i] = button(q, x, y, w, 26, col::SURF, col::BLUE, nullptr);
         lv_obj_set_style_bg_color(chips_[i], c(col::BLUE), LV_STATE_PRESSED);
         lv_obj_set_style_border_color(chips_[i], c(col::LINE), LV_STATE_DISABLED);
         chip_labels_[i] = label(chips_[i], &tfield_font_12b, col::BLUE, "");
-        lv_obj_set_size(chip_labels_[i], w - 10, 14);
+        lv_obj_set_size(chip_labels_[i], w - 4, 14);
         lv_obj_set_style_text_align(chip_labels_[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(chip_labels_[i], LV_LABEL_LONG_MODE_DOTS);
         lv_obj_center(chip_labels_[i]);
@@ -117,37 +174,52 @@ void HomeScreen::create(App *app)
         lv_obj_add_event_cb(chips_[i], on_chip, LV_EVENT_CLICKED, this);
     }
 
-    // --- Pestañas
-    lv_obj_t *nav = box(screen, 0, NAV_Y, SCREEN_W, SCREEN_H - NAV_Y, col::SURF);
-    border(nav, col::INK, 1, LV_BORDER_SIDE_TOP);
-    // pestañas de ancho ajustado + SOS a la derecha
-    static const int32_t TAB_X[4] = {0, 84, 144, 212}, TAB_W[4] = {84, 60, 68, 68};
-    for (int i = 0; i < 4; i++) {
-        lv_obj_t *tab = button(nav, TAB_X[i], 1, TAB_W[i], SCREEN_H - NAV_Y - 1, col::SURF, 0, nullptr);
-        lv_obj_set_style_radius(tab, 0, 0);
-        lv_obj_set_style_bg_color(tab, c(col::BG), LV_STATE_PRESSED);
-        {
-            set_border_color(tab, col::LINE2);
-            lv_obj_set_style_border_width(tab, 1, 0);
-            lv_obj_set_style_border_side(tab, LV_BORDER_SIDE_RIGHT, 0);
-        }
-        lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_ROW);
-        lv_obj_set_flex_align(tab, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_column(tab, 3, 0);
-        lv_obj_t *sq = box(tab, 0, 0, 14, 14, TABS[i].color);
-        lv_obj_set_style_radius(sq, 2, 0);
-        lv_obj_t *n = label(sq, &tfield_font_12b, col::SURF, TABS[i].num);
-        lv_obj_center(n);
-        label(tab, &tfield_font_12b, col::INK, tr(TABS[i].label));
-        lv_obj_set_user_data(tab, (void *)(intptr_t)i);
-        lv_obj_add_event_cb(tab, on_tab, LV_EVENT_CLICKED, this);
-        tabs_[i] = tab;
-    }
-    sos_ = hold_button(nav, 282, 3, 35, SCREEN_H - NAV_Y - 5, col::RED, 0x7A1712, col::SURF, "SOS", 2000,
-                       [](void *u) { static_cast<App *>(u)->trigger_sos(); }, app, nullptr);
-    lv_obj_set_style_radius(sos_, 3, 0);
+    // --- 3 Mapa: ficha entera; avisa si hay una ruta grabándose
+    lv_obj_t *map = button(screen, RIGHT_X, ROW2_Y, MAP_W, ROW2_H, col::GREEN, 0, nullptr);
+    lv_obj_set_style_radius(map, 4, 0);
+    lv_obj_set_style_bg_color(map, c(0x1F4D24), LV_STATE_PRESSED);
+    num_square(map, 4, 4, "3", col::GREEN);
+    picto_img(map, 2, (MAP_W - 28) / 2, 13, col::SURF);
+    lv_obj_t *ml = label(map, &tfield_font_12b, col::SURF, tr("Mapa"));
+    ui::align(ml, LV_ALIGN_TOP_MID, 0, 42);
+    rec_label_ = label(map, &tfield_font_12, col::SURF, tr("Grabando"));
+    ui::align(rec_label_, LV_ALIGN_TOP_MID, 0, 58);
+    rec_dot_ = box(map, MAP_W - 13, 4, 9, 9, col::RED);
+    lv_obj_set_style_radius(rec_dot_, LV_RADIUS_CIRCLE, 0);
+    border(rec_dot_, col::SURF, 2);
+    show(rec_label_, false);
+    show(rec_dot_, false);
+    lv_obj_set_user_data(map, (void *)(intptr_t)2);
+    lv_obj_add_event_cb(map, on_tab, LV_EVENT_CLICKED, this);
+    tabs_[2] = map;
+
+    // --- 4 Ajustes
+    int32_t side_h = (ROW2_H - GAP) / 2;
+    lv_obj_t *set = button(screen, SIDE_X, ROW2_Y, SIDE_W, side_h, col::SLATE, 0, nullptr);
+    lv_obj_set_style_radius(set, 4, 0);
+    lv_obj_set_style_bg_color(set, c(0x2A353D), LV_STATE_PRESSED);
+    num_square(set, 4, 3, "4", col::SLATE);
+    picto_img(set, 3, SIDE_W - 21, 2, col::SURF);
+    lv_obj_t *sl = label(set, &tfield_font_12b, col::SURF, tr("Ajustes"));
+    ui::align(sl, LV_ALIGN_TOP_MID, 0, 20);
+    lv_obj_set_user_data(set, (void *)(intptr_t)3);
+    lv_obj_add_event_cb(set, on_tab, LV_EVENT_CLICKED, this);
+    tabs_[3] = set;
+
+    // --- SOS: mantener 2 s
+    sos_ = hold_button(screen, SIDE_X, ROW2_Y + side_h + GAP, SIDE_W, ROW2_H - side_h - GAP, col::RED, 0x7A1712,
+                       col::SURF, "SOS", 2000, [](void *u) { static_cast<App *>(u)->trigger_sos(); }, app, nullptr);
+    lv_obj_set_style_radius(sos_, 4, 0);
     rebuild_focus();
     refresh_chips();
+}
+
+// "HH:MM" → minutos desde medianoche (-1 si no viene)
+static int hhmm_min(const std::string &s)
+{
+    if (s.size() < 5 || s[2] != ':')
+        return -1;
+    return std::atoi(s.substr(0, 2).c_str()) * 60 + std::atoi(s.substr(3, 2).c_str());
 }
 
 void HomeScreen::set_status(const Status &s)
@@ -158,20 +230,37 @@ void HomeScreen::set_status(const Status &s)
     else
         snprintf(buf, sizeof(buf), "--:--");
     set_text(clock_, buf);
-    set_text(day_, s.day);
-    set_text(month_, s.month);
+    set_text(date_, s.day.empty() ? std::string() : s.day + " " + s.month);
+
+    // luz del día: texto y barra (gris lo que pasó desde la salida del sol, ámbar lo que queda)
+    int rise = hhmm_min(s.sunrise), set = hhmm_min(s.sunset);
+    bool sun = s.daylight_min >= 0 && s.epoch && rise >= 0 && set > rise;
     if (s.daylight_min > 0) {
         set_text(daylight_, format_daylight(s.daylight_min) + tr(" de luz"));
-        set_text(sunset_, tr("Puesta ") + s.sunset);
-        set_bg(sun_dot_, col::AMBER);
-    } else if (s.daylight_min == 0) { // de noche: cuándo vuelve la luz
+        set_color(daylight_, col::AMBER);
+    } else if (s.daylight_min == 0) {
         set_text(daylight_, tr("Noche"));
-        set_text(sunset_, s.sunrise.empty() ? std::string() : tr("Sale el sol ") + s.sunrise);
-        set_bg(sun_dot_, col::INK2);
+        set_color(daylight_, col::INK2);
     } else {
-        set_text(daylight_, tr("Sin posición"));
-        set_text(sunset_, "");
+        set_text(daylight_, tr("Sin posici\xC3\xB3n"));
+        set_color(daylight_, col::INK2);
     }
+    ui::align_to(daylight_, date_, LV_ALIGN_OUT_RIGHT_MID, s.day.empty() ? 0 : 6, 0);
+    show(rise_, sun);
+    show(set_, sun);
+    show(bar_, sun);
+    show(now_mark_, sun && s.daylight_min > 0);
+    if (sun) {
+        set_text(rise_, s.sunrise);
+        set_text(set_, s.sunset);
+        int32_t left = s.daylight_min > 0 ? LV_CLAMP(0, s.daylight_min * BAR_W / (set - rise), BAR_W) : 0;
+        if (lv_obj_get_x(bar_left_) != BAR_W - left || lv_obj_get_width(bar_left_) != left) {
+            lv_obj_set_pos(bar_left_, BAR_W - left, 0);
+            lv_obj_set_width(bar_left_, left);
+        }
+        lv_obj_set_pos(now_mark_, BAR_X + LV_CLAMP(0, BAR_W - left - 1, BAR_W - 2), 18);
+    }
+
     set_text(name_, s.short_name);
     snprintf(buf, sizeof(buf), s.gps_fix ? "GPS %u" : "GPS --", s.sats);
     set_text(gps_, buf);
@@ -187,16 +276,23 @@ void HomeScreen::set_status(const Status &s)
     battery_set(bat_, s.battery, col::INK);
 }
 
+void HomeScreen::set_recording(bool on)
+{
+    show(rec_label_, on);
+    show(rec_dot_, on);
+}
+
 void HomeScreen::set_team(const std::vector<TeamNode> &team)
 {
     char buf[32];
-    snprintf(buf, sizeof(buf), tr("Equipo \xC2\xB7 %u"), (unsigned)team.size());
-    set_text(team_title_, buf);
+    snprintf(buf, sizeof(buf), "%u", (unsigned)team.size());
+    set_text(team_count_, team.empty() ? "" : buf);
 
     // Crear o eliminar filas solo si cambia la cantidad.
+    int32_t rw = RIGHT_W - 2;
     while (team_rows_.size() < team.size()) {
         TeamRow r{};
-        r.row = button(team_list_, 0, 0, TEAM_W - 1, ROW_H, col::SURF, 0, nullptr);
+        r.row = button(team_list_, 0, 0, rw, ROW_H, col::SURF, 0, nullptr);
         lv_obj_set_style_radius(r.row, 0, 0);
         border(r.row, col::LINE2, 1, LV_BORDER_SIDE_BOTTOM);
         lv_obj_set_style_bg_color(r.row, c(col::BG), LV_STATE_PRESSED);
@@ -207,50 +303,37 @@ void HomeScreen::set_team(const std::vector<TeamNode> &team)
                 self->app_->show_node(num);
             },
             LV_EVENT_CLICKED, this);
-        r.dot = box(r.row, 5, 5, 8, 8, col::INK);
+        // renglón 1: color · nombre ……… señal · batería %
+        r.dot = box(r.row, 4, 5, 7, 7, col::INK);
         lv_obj_set_style_radius(r.dot, LV_RADIUS_CIRCLE, 0);
-        r.name = label(r.row, &tfield_font_14b, col::INK, "");
-        lv_obj_set_pos(r.name, 17, 0);
-        // línea 1: nombre · hace cuánto · señal
-        r.bars = signal_bars(r.row, TEAM_W - 1 - 5 - 11, 3);
-        r.heard = label(r.row, &tfield_font_12, col::INK2, "");
-        ui::align(r.heard, LV_ALIGN_TOP_RIGHT, -21, 1);
-        // línea 2: distancia y rumbo · altura · batería
-        r.dist = label(r.row, &tfield_font_12, col::INK, "");
-        lv_obj_set_pos(r.dist, 17, 14);
-        r.alt = label(r.row, &tfield_font_12, col::INK, "");
-        lv_obj_set_pos(r.alt, 79, 14);
-        r.bat = battery(r.row, 122, 18);
+        r.name = label(r.row, &tfield_font_12b, col::INK, "");
+        lv_obj_set_pos(r.name, 14, 1);
+        lv_obj_set_size(r.name, 34, 14);
+        lv_label_set_long_mode(r.name, LV_LABEL_LONG_MODE_CLIP);
         r.pct = label(r.row, &tfield_font_12, col::INK, "");
-        lv_obj_set_pos(r.pct, 138, 14);
+        r.bat = battery(r.row, 0, 0);
+        r.bars = signal_bars(r.row, 0, 0);
+        // renglón 2: distancia y rumbo · desnivel
+        r.dist = label(r.row, &tfield_font_12b, col::INK, "");
+        lv_obj_set_pos(r.dist, 4, 17);
+        r.alt = label(r.row, &tfield_font_12, col::INK, "");
+        r.heard = nullptr;
         team_rows_.push_back(r);
     }
     while (team_rows_.size() > team.size()) {
         lv_obj_delete(team_rows_.back().row);
         team_rows_.pop_back();
     }
-    if (team.empty())
-        show(team_empty_, true);
-    else
-        show(team_empty_, false);
+    show(team_empty_, team.empty());
 
     for (size_t i = 0; i < team.size(); i++) {
         const TeamNode &n = team[i];
         TeamRow &r = team_rows_[i];
-        bool fresh = n.heard_ago_s < 60;
         lv_obj_set_user_data(r.row, (void *)(uintptr_t)n.num);
-        set_bg(r.row, n.stale ? col::AMBER_BG : col::SURF);
+        set_bg(r.row, n.stale ? col::AMBER_BG : col::SURF); // sin noticias hace rato: ámbar
         set_bg(r.dot, n.color);
         set_text(r.name, n.name);
-        set_text(r.heard, format_ago(n.heard_ago_s));
-        set_font(r.heard, (fresh || n.stale) ? &tfield_font_12b : &tfield_font_12);
-        set_color(r.heard, n.stale ? col::AMBER : (fresh ? col::GREEN : col::INK2));
-        if (n.dist_m >= 0)
-            set_text(r.dist, format_distance(n.dist_m) + " " + cardinal(n.bearing_deg));
-        else
-            set_text(r.dist, tr("sin posición"));
-        set_text(r.alt, n.has_alt && n.dist_m >= 0 ? format_alt_diff(n.alt_diff_m) : "");
-        battery_set(r.bat, n.battery, col::INK);
+        set_color(r.name, n.stale ? col::AMBER : col::INK);
         if (n.battery > 100)
             set_text(r.pct, "USB");
         else if (n.battery >= 0) {
@@ -258,7 +341,17 @@ void HomeScreen::set_team(const std::vector<TeamNode> &team)
             set_text(r.pct, buf);
         } else
             set_text(r.pct, "--");
+        ui::align(r.pct, LV_ALIGN_TOP_RIGHT, -4, 1);
+        ui::align_to(r.bat, r.pct, LV_ALIGN_OUT_LEFT_MID, -2, 1);
+        ui::align_to(r.bars, r.bat, LV_ALIGN_OUT_LEFT_MID, -4, -1);
+        battery_set(r.bat, n.battery, col::INK);
         signal_set(r.bars, n.stale ? 0 : n.signal, col::INK, n.stale ? 0xE3D3B5 : col::LINE);
+        if (n.dist_m >= 0)
+            set_text(r.dist, format_distance(n.dist_m) + " " + cardinal(n.bearing_deg));
+        else
+            set_text(r.dist, tr("sin posici\xC3\xB3n"));
+        set_text(r.alt, n.has_alt && n.dist_m >= 0 ? format_alt_diff(n.alt_diff_m) : "");
+        ui::align_to(r.alt, r.dist, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
     }
     rebuild_focus();
 }
@@ -289,21 +382,21 @@ void HomeScreen::set_chats(const std::vector<Chat> &chats)
         buf[0] = 0;
     set_text(chat_badge_, buf);
 
-    int32_t cw = SCREEN_W - TEAM_W - 1;
+    int32_t cw = LEFT_W - 2;
     while (chat_rows_.size() < chats_.size()) {
         ChatRow r{};
         r.row = button(chat_list_, 0, 0, cw, ROW_H, col::SURF, 0, nullptr);
         lv_obj_set_style_radius(r.row, 0, 0);
         border(r.row, col::LINE2, 1, LV_BORDER_SIDE_BOTTOM);
-        r.dot = box(r.row, 4, 5, 5, 5, col::BLUE);
+        r.dot = box(r.row, 5, 6, 6, 6, col::BLUE);
         lv_obj_set_style_radius(r.dot, LV_RADIUS_CIRCLE, 0);
         r.name = label(r.row, &tfield_font_12b, col::INK, "");
-        lv_obj_set_pos(r.name, 12, 1);
+        lv_obj_set_pos(r.name, 14, 2);
         r.tag = label(r.row, &tfield_font_12, col::INK2, "");
         r.time = label(r.row, &tfield_font_12, col::INK2, "");
-        ui::align(r.time, LV_ALIGN_TOP_RIGHT, -5, 1);
+        ui::align(r.time, LV_ALIGN_TOP_RIGHT, -5, 2);
         r.preview = label(r.row, &tfield_font_12, col::INK, "");
-        lv_obj_set_pos(r.preview, 5, 14);
+        lv_obj_set_pos(r.preview, 5, 17);
         lv_obj_set_size(r.preview, cw - 10, 14);
         lv_label_set_long_mode(r.preview, LV_LABEL_LONG_MODE_DOTS);
         lv_obj_set_user_data(r.row, (void *)(intptr_t)chat_rows_.size());
@@ -332,8 +425,8 @@ void HomeScreen::set_chats(const std::vector<Chat> &chats)
     refresh_chips();
 }
 
-// Orden de foco con teclado/trackball: chats → respuestas → pestañas → SOS → equipo.
-// (el equipo al final: lo más usado es responder; ↑ desde el primer chat llega al equipo)
+// Orden de foco con teclado/trackball: chats → respuestas → fichas 1-4 → equipo → SOS.
+// (lo más usado es responder; ↑ desde el primer chat llega al SOS, el último)
 void HomeScreen::rebuild_focus()
 {
     std::vector<lv_obj_t *> objs;
@@ -345,7 +438,7 @@ void HomeScreen::rebuild_focus()
         objs.push_back(tab);
     for (auto &r : team_rows_)
         objs.push_back(r.row);
-    objs.push_back(sos_); // el último: con ↑ desde el primer chat se llega directo
+    objs.push_back(sos_);
     regroup(group, objs);
 }
 
@@ -363,17 +456,14 @@ void HomeScreen::restyle_chat_row(int i)
     set_color(r.preview, fg);
     set_font(r.preview, ch.unread ? &tfield_font_12b : &tfield_font_12);
     set_bg(r.dot, on ? col::SURF : col::BLUE);
-    if (ch.unread)
-        show(r.dot, true);
-    else
-        show(r.dot, false);
+    show(r.dot, ch.unread);
 }
 
 void HomeScreen::set_quick(const QuickReplies &q)
 {
     quick_ = q;
     for (int i = 0; i < 4; i++)
-        set_text(chip_labels_[i], q.text[i].empty() ? tr("(vacía)") : q.text[i]);
+        set_text(chip_labels_[i], q.text[i].empty() ? tr("(vac\xC3\xAD" "a)") : q.text[i]);
     refresh_chips();
 }
 
@@ -458,7 +548,7 @@ void HomeScreen::on_tab(lv_event_t *e)
     auto *self = static_cast<HomeScreen *>(lv_event_get_user_data(e));
     lv_obj_t *tab = static_cast<lv_obj_t *>(lv_event_get_current_target(e));
     int i = (int)(intptr_t)lv_obj_get_user_data(tab);
-    self->app_->show(TABS[i].target);
+    self->app_->show(TARGETS[i]);
 }
 
 } // namespace tfield

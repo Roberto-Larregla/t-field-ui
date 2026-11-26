@@ -19,7 +19,7 @@ La interfaz está en **español e inglés**, con tema **claro, oscuro o automát
 
 ## Qué hace
 
-- **Inicio:** hora, luz del día que queda, batería y GPS propios; distancia, rumbo, diferencia de altura, batería y señal de cada compañero; últimos chats y respuestas rápidas.
+- **Inicio:** fichas de color que son también los accesos (1 Mensajes, 2 Equipo, 3 Mapa, 4 Ajustes, SOS). Hora, barra de luz del día de la salida a la puesta del sol, batería y GPS propios; distancia, rumbo, diferencia de altura, batería y señal de cada compañero; últimos chats y respuestas rápidas; la ficha Mapa avisa cuando se está grabando una ruta.
 - **Mensajes:** chats y canales, respuestas rápidas editables, contador de bytes (el límite de Meshtastic) y puntos compartidos que se abren en el mapa. Borrar un chat (dos pulsaciones), todos, o los mensajes de más de 1, 7 o 30 días.
 - **Mapa:** mapa base desde la tarjeta SD o cuadrícula UTM; puntos (P1, P2…), rutas grabadas en GPX (R1, R2…), regla, destino y rastro de cada compañero.
 - **Equipo:** «Mi equipo» y toda la red; ficha de cada nodo, pedir posiciones a todos y ruta de señal.
@@ -103,7 +103,7 @@ Para hacer teselas con tus propios mapas en [QGIS](https://qgis.org): *Caja de h
 
 ### 5. Primera configuración en el equipo
 
-Ajustes es la cuarta pestaña del inicio (o la tecla `4`).
+Ajustes es la ficha 4 del inicio (o la tecla `4`).
 
 1. **Ajustes › Pantalla:** idioma, tema y brillo.
 2. **Ajustes › Avanzado:** la **región LoRa** de tu país (ver la [lista de Meshtastic](https://meshtastic.org/docs/configuration/region-by-country/)) y el **preset**. Todos los equipos del grupo necesitan la misma región y el mismo preset. Aplicar reinicia la radio.
@@ -136,6 +136,13 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
   -r 0x20-0x7E -r 0xA0-0xFF -r 0x2013,0x2014,0x2022,0x2026,0x2039,0x203A,0x2212 \
   --format lvgl --lv-include lvgl.h --lv-font-name tfield_font_12 -o tfield_font_12.c
 ```
+
+Los pictogramas del inicio (`tfield_pictos.c`) salen de Tabler Icons con `pictos.py` (necesita `rsvg-convert` y Pillow):
+
+```sh
+npm pack @tabler/icons@3 && tar xzf tabler-icons-*.tgz
+python3 pictos.py package/icons/outline > tfield_pictos.c
+```
 </details>
 
 ## Créditos
@@ -144,6 +151,7 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
 - Desarrollado con la ayuda de **Claude**.
 - [LVGL](https://lvgl.io) (MIT) y [Meshtastic](https://meshtastic.org) (GPL-3.0).
 - Fuente [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), del Braille Institute (SIL Open Font License 1.1, ver `fonts/OFL.txt`).
+- Pictogramas de [Tabler Icons](https://tabler.io/icons) (MIT).
 
 ## Licencia
 

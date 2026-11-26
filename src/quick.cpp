@@ -1,4 +1,4 @@
-// Editor de respuestas rápidas: 4 textos de máx. 25 caracteres.
+// Editor de respuestas rápidas: 4 textos de máx. QUICK_MAX_CHARS (14) caracteres.
 #include "tfield/app.h"
 #include "tfield/i18n.h"
 #include "tfield/format.h"
@@ -54,7 +54,7 @@ void QuickScreen::create(App *app)
         lv_group_add_obj(group, ta);
         inputs_[i] = ta;
 
-        counters_[i] = label(screen, &tfield_font_12, col::INK2, "0/25");
+        counters_[i] = label(screen, &tfield_font_12, col::INK2, "0/14");
         lv_obj_set_width(counters_[i], 38);
         lv_obj_set_style_text_align(counters_[i], LV_TEXT_ALIGN_RIGHT, 0);
         lv_obj_set_pos(counters_[i], 276, y + 5);
@@ -63,12 +63,13 @@ void QuickScreen::create(App *app)
     lv_obj_t *pl = label(screen, &tfield_font_12, col::INK2, tr("Vista previa: as\xC3\xAD se ver\xC3\xA1n en el inicio"));
     lv_obj_set_pos(pl, 6, 151);
     for (int i = 0; i < 4; i++) {
-        int32_t x = (i % 2) ? 161 : 4, y = (i / 2) ? 192 : 167, w = (i % 2) ? 155 : 154;
+        // mismo ancho que los botones del inicio (94 px): lo que no cabe se ve con "…"
+        int32_t x = (i % 2) ? 100 : 4, y = (i / 2) ? 192 : 167, w = 94;
         lv_obj_t *chip = box(screen, x, y, w, 22, col::SURF);
         border(chip, col::BLUE, 1);
         lv_obj_set_style_radius(chip, 3, 0);
         preview_[i] = label(chip, &tfield_font_12b, col::BLUE, "");
-        lv_obj_set_size(preview_[i], w - 10, 14);
+        lv_obj_set_size(preview_[i], w - 4, 14);
         lv_obj_set_style_text_align(preview_[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(preview_[i], LV_LABEL_LONG_MODE_DOTS);
         lv_obj_center(preview_[i]);

@@ -44,7 +44,7 @@ constexpr int32_t SCREEN_W = 320;
 constexpr int32_t SCREEN_H = 240;
 
 // Límites de texto. Meshtastic mide en bytes (UTF-8): "ñ" o "á" usan 2.
-constexpr uint32_t QUICK_MAX_CHARS = 25;   // respuestas rápidas (caracteres, a pedido)
+constexpr uint32_t QUICK_MAX_CHARS = 14;   // respuestas rápidas (caracteres): caben en los botones del inicio
 constexpr uint32_t MSG_MAX_BYTES = 200;    // mensaje de texto (el paquete admite ~230 bytes)
 constexpr uint32_t WP_NAME_MAX_BYTES = 29; // nombre de punto (Waypoint.name)
 constexpr uint32_t WP_NOTE_MAX_BYTES = 99; // nota de punto (Waypoint.description)

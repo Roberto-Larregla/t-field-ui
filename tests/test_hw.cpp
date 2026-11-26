@@ -111,8 +111,15 @@ APP_TEST(hw_teclado_y_bola)
     CHECK(!rec.sent.empty() && rec.sent.back().find("Geolog\xC3\xAD" "a") != std::string::npos);
 
     // mapa con la bola: tomarlo con un clic, moverlo, soltarlo
+    // números del inicio: 1 Mensajes, 2 Equipo, 3 Mapa, 4 Ajustes
     app->show(ScreenId::Home);
     th::kb('2');
+    CHECK(app->current() == ScreenId::Team);
+    app->show(ScreenId::Home);
+    th::kb('4');
+    CHECK(app->current() == ScreenId::Settings);
+    app->show(ScreenId::Home);
+    th::kb('3');
     CHECK(app->current() == ScreenId::Map);
     lv_group_t *g = app->map_screen.group;
     for (int i = 0; i < 6 && lv_group_get_focused(g) != app->map_screen.view; i++)

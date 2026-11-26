@@ -492,7 +492,7 @@ APP_TEST(respuestas_esc_sin_guardar)
     th::key(LV_KEY_ESC);
     CHECK(app->current() == ScreenId::Home);
     CHECK_EQ(app->quick().text[0], std::string("OK, recibido"));
-    // al guardar, el texto queda limitado a 25 caracteres (no bytes)
+    // al guardar, el texto queda limitado a QUICK_MAX_CHARS caracteres (no bytes)
     app->show(ScreenId::QuickReplies);
     lv_group_focus_obj(lv_group_get_obj_by_index(app->quick_screen.group, 2));
     th::type(" \xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1\xC3\xB1");
@@ -594,7 +594,7 @@ APP_TEST(inicio_foco_estable)
     lv_obj_t *base = nullptr;
     for (uint32_t i = 0; i < lv_group_get_obj_count(g); i++) {
         lv_obj_t *o = lv_group_get_obj_by_index(g, i);
-        if (lv_obj_get_width(o) == 147 && row_name(o) == "BASE")
+        if (lv_obj_get_width(o) == 194 && row_name(o) == "BASE")
             base = o;
     }
     CHECK(base != nullptr);

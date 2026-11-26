@@ -394,6 +394,7 @@ void App::set_track(const Track &t)
     track_ = t;
     restat_track();
     map_screen.set_track(t);
+    home.set_recording(t.recording);
 }
 
 void App::restat_track()
@@ -477,6 +478,7 @@ bool App::recover_track(const std::string &csv)
     restat_track();
     recovered_ = true;
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
     return true;
 }
 
@@ -501,6 +503,7 @@ void App::start_recording()
         backup_buf_ += backup_line(track_.pts.back());
     }
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
     if (on_recording)
         on_recording(true);
 }
@@ -510,6 +513,7 @@ void App::stop_recording()
     track_.recording = false;
     flush_backup();
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
     if (on_recording)
         on_recording(false);
 }
@@ -518,6 +522,7 @@ void App::resume_recording()
 {
     track_.recording = true;
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
     if (on_recording)
         on_recording(true);
 }
@@ -547,6 +552,7 @@ void App::add_track_point(const TrackPoint &p)
     if (backup_buf_.size() >= 6 * 40) // cada ~6 puntos (1 min a 10 s): poco que perder, pocas escrituras
         flush_backup();
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
 }
 
 // archivo para una ruta, distinto del de cualquier otra ruta guardada
@@ -685,6 +691,7 @@ std::string App::save_track(const std::string &name, const std::string &note)
     if (on_delete_file)
         on_delete_file(TRACK_BACKUP); // el respaldo ya no hace falta
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
     return file;
 }
 
@@ -797,6 +804,7 @@ void App::discard_track()
     if (on_delete_file)
         on_delete_file(TRACK_BACKUP);
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
 }
 
 std::string App::next_point_name() const
@@ -1331,7 +1339,13 @@ void App::add_message(const std::string &in_id, const Message &m)
 void App::set_quick(const QuickReplies &q)
 {
     quick_ = q;
-    home.set_quick(q);
+    // las de fábrica de versiones anteriores, más largas que el límite actual: las nuevas
+    static const char *const OLD[][2] = {{"Llego en 15 min", "En 15 minutos"}, {"There in 15 min", "In 15 minutes"}};
+    for (auto &t : quick_.text)
+        for (auto &o : OLD)
+            if (t == o[0])
+                t = o[1];
+    home.set_quick(quick_);
 }
 
 std::string App::now_hhmm() const
@@ -1461,7 +1475,7 @@ bool App::handle_key(uint32_t key)
         return true;
     }
     if (current_ == ScreenId::Home && !typing && key >= '1' && key <= '4') {
-        static const ScreenId tabs[] = {ScreenId::Messages, ScreenId::Map, ScreenId::Team, ScreenId::Settings};
+        static const ScreenId tabs[] = {ScreenId::Messages, ScreenId::Team, ScreenId::Map, ScreenId::Settings};
         show(tabs[key - '1']);
         return true;
     }
@@ -1494,8 +1508,9 @@ void App::set_settings(const Settings &s)
 // ------------------------------------------------------------- tema e idioma
 const QuickReplies &App::quick_defaults() const
 {
-    static const QuickReplies es{{"OK, recibido", "Voy en camino", "Llego en 15 min", "Necesito apoyo"}};
-    static const QuickReplies en{{"OK, got it", "On my way", "There in 15 min", "Need backup"}};
+    // máximo QUICK_MAX_CHARS (14): caben completas en los botones del inicio
+    static const QuickReplies es{{"OK, recibido", "Voy en camino", "En 15 minutos", "Necesito apoyo"}};
+    static const QuickReplies en{{"OK, got it", "On my way", "In 15 minutes", "Need backup"}};
     return english() ? en : es;
 }
 
@@ -1597,6 +1612,7 @@ void App::rebuild_ui()
     map_screen.set_position(position_);
     map_screen.set_waypoints(waypoints_);
     map_screen.set_track(track_);
+    home.set_recording(track_.recording);
     map_screen.set_saved_tracks(saved_tracks_);
     team_screen.show_all(team_all);
     messages_screen.current = chat;

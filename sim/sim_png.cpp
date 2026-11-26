@@ -238,5 +238,17 @@ int main(int argc, char **argv)
     click(by_text(app.map_screen.active_group(), "Todo mi equipo"));
     render(out + "/compartir_equipo.raw");
     app.handle_key(LV_KEY_ESC);
+
+    // Inicio: de noche, sin ruta en curso, y sin posición (sin barra de luz)
+    app.show(tfield::ScreenId::Home);
+    app.stop_recording();
+    app.set_status(demo::status(21, 40));
+    render(out + "/inicio_noche.raw");
+    tfield::Status st = demo::status(14, 32);
+    st.daylight_min = -1;
+    st.gps_fix = false;
+    st.sats = 0;
+    app.set_status(st);
+    render(out + "/inicio_sin_posicion.raw");
     return 0;
 }
