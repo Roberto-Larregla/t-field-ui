@@ -1746,11 +1746,8 @@ void App::forget_chat(const std::string &chat_id, bool remove)
 
 void App::delete_chat(const std::string &chat_id)
 {
-    bool channel = false;
-    for (auto &ch : chats_)
-        if (ch.id == chat_id)
-            channel = ch.is_channel;
-    forget_chat(chat_id, !channel);
+    // se borran los mensajes; el chat (directo o canal) queda en su pestaña, vacío
+    forget_chat(chat_id, false);
     publish_chats();
     messages_screen.show_chat(messages_screen.current);
 }

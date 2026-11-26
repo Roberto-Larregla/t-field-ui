@@ -31,7 +31,7 @@ static lv_obj_t *find_text(lv_group_t *g, const char *txt)
 
 APP_TEST(borrar_un_chat)
 {
-    // directo: desaparece, con doble confirmación
+    // directo: se borran los mensajes y la pestaña queda, con doble confirmación
     app->open_direct_chat(2); // GEO2
     std::string id = app->messages_screen.current;
     CHECK(!app->messages(id).empty());
@@ -45,9 +45,10 @@ APP_TEST(borrar_un_chat)
     CHECK(th::visible_text("\xC2\xBF" "Borrar?"));
     lv_obj_send_event(del, LV_EVENT_CLICKED, nullptr);
     th::tick(30);
-    CHECK(!has_chat(id));
+    CHECK(has_chat(id));
     CHECK(app->messages(id).empty());
-    CHECK(!rec.cleared.empty() && rec.cleared.back() == id + "|1");
+    CHECK_EQ(app->messages_screen.current, id); // sigue abierto, listo para escribir
+    CHECK(!rec.cleared.empty() && rec.cleared.back() == id + "|0");
     CHECK(app->current() == ScreenId::Messages);
     // volver a escribirle: Equipo › ficha › Mensaje
     app->show_node(2);
