@@ -36,6 +36,16 @@ PICTOS = [
     ("tfield_picto_route", "route", 16, 2.2),
     ("tfield_picto_user_plus", "user-plus", 16, 2.2),
     ("tfield_picto_user_minus", "user-minus", 16, 2.2),
+    # Ajustes: secciones y modos
+    ("tfield_picto_sun", "sun", 14, 2.3),
+    ("tfield_picto_lock", "lock", 14, 2.3),
+    ("tfield_picto_sos", "alert-triangle", 14, 2.3),
+    ("tfield_picto_badge", "id-badge-2", 14, 2.3),
+    ("tfield_picto_antenna", "antenna", 14, 2.3),
+    ("tfield_picto_walk", "walk", 18, 2.3),
+    ("tfield_picto_battery", "battery-2", 18, 2.3),
+    ("tfield_picto_moon", "moon", 18, 2.3),
+    ("tfield_picto_tent", "tent", 18, 2.3),
 ]
 
 

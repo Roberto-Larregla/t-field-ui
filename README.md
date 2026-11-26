@@ -24,7 +24,7 @@ The interface comes in **English and Spanish**, with a **light, dark or automati
 - **Map:** base map tiles from the SD card or a UTM grid; waypoints (P1, P2…), recorded GPX tracks (R1, R2…), a ruler, a navigation target and each teammate's trail. It stays clean, with no names on top: tap a marker (or step through them with ← →) to get its card with distance and height difference, and the **layers** button shows or hides each layer (my team, other mesh nodes, shared points, my points) and picks which ones carry names, per layer or, inside a layer, one by one. Whoever is out of view shows up at the edge with an arrow.
 - **Team:** a tile per teammate with distance and bearing (arrow), height difference, battery and signal; "my team" and the whole mesh, scrolling down when they don't fit (with "5–8 of 12"); a card for each node with its actions, request positions from everyone, and traceroute.
 - **SOS:** sent on the channel and directly to each teammate, showing who received it.
-- **Settings:** display (brightness, theme, language), GPS, messages, map, a private channel with encrypted invitations, SOS, node and time, and radio.
+- **Settings:** four one-tap modes (Field, Saver, Night and Camp: brightness, screen timeout, keyboard light, theme and how often your position is sent); change anything by hand and the mode shows as "custom". Below them, All settings: display, GPS, messages, map, a private channel with encrypted invitations, SOS, node and time, and radio, with switches for yes/no options.
 - **Dark mode:** no glare at night, with the base map dimmed. On the T-Deck's IPS screen it doesn't save battery: the backlight does that.
 - **Keyboard and trackball:** everything works without touching the screen.
 
@@ -105,8 +105,8 @@ To make tiles from your own maps in [QGIS](https://qgis.org): *Processing Toolbo
 
 Settings is tile 4 on the home screen (or the `4` key).
 
-1. **Settings › Display:** language, theme and brightness.
-2. **Settings › Advanced:** the **LoRa region** of your country (see [Meshtastic's list](https://meshtastic.org/docs/configuration/region-by-country/)) and the **preset**. Every device in the group needs the same region and preset. Applying restarts the radio.
+1. **Settings › Display:** language, theme and brightness. The modes at the top change several settings at once.
+2. **Settings › Radio:** the **LoRa region** of your country (see [Meshtastic's list](https://meshtastic.org/docs/configuration/region-by-country/)) and the **preset**. Every device in the group needs the same region and preset. Applying restarts the radio.
 3. **Settings › Node & time:** short name (4 characters), long name and time zone.
 4. **Team › Whole mesh:** open each teammate's card and choose **Add to team**. They then appear on the home screen with distance and bearing.
 5. **Settings › Private channel** (optional): create the channel and invite your team. Invitations are end-to-end encrypted, so they only reach nodes whose public key your device already knows (nodes it has heard).
@@ -137,12 +137,22 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
   --format lvgl --lv-include lvgl.h --lv-font-name tfield_font_12 -o tfield_font_12.c
 ```
 
-The home-screen pictograms (`tfield_pictos.c`) come from Tabler Icons via `pictos.py` (needs `rsvg-convert` and Pillow):
+The pictograms (`tfield_pictos.c`) come from Tabler Icons via `pictos.py` (needs `rsvg-convert` and Pillow):
 
 ```sh
 npm pack @tabler/icons@3 && tar xzf tabler-icons-*.tgz
 python3 pictos.py package/icons/outline > tfield_pictos.c
 ```
+
+The screen image at the top of this README is built from the simulator's captures, from the repository root:
+
+```sh
+./build/sim_png /tmp/es es claro && ./build/sim_png /tmp/eso es oscuro
+python3 sim/raw2png.py /tmp/es && python3 sim/raw2png.py /tmp/eso
+python3 sim/composite.py /tmp/es /tmp/eso docs/img/pantallas.png es
+```
+
+(the same with `en` for `docs/img/screens-en.png`).
 </details>
 
 ## Credits

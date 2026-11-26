@@ -1,4 +1,5 @@
-// Pantalla de ajustes: cuadrícula de 9 secciones y una página por sección.
+// Pantalla de ajustes: arriba los modos (Terreno, Ahorro, Noche, Campamento: un toque cambia
+// varios ajustes) y abajo "Configuración", con una página por sección.
 // Cada fila es un interruptor, una opción (‹ valor ›), un texto o una acción.
 // Las opciones que dependen de "mi equipo" llevan una barra morada a la izquierda.
 #include "tfield/app.h"
@@ -11,19 +12,98 @@
 #include <cstdio>
 #include <utility>
 
+// pictogramas (fonts/tfield_pictos.c, C): fuera del namespace
+LV_IMAGE_DECLARE(tfield_picto_settings);
+LV_IMAGE_DECLARE(tfield_picto_sun);
+LV_IMAGE_DECLARE(tfield_picto_locate);
+LV_IMAGE_DECLARE(tfield_picto_mail);
+LV_IMAGE_DECLARE(tfield_picto_map16);
+LV_IMAGE_DECLARE(tfield_picto_lock);
+LV_IMAGE_DECLARE(tfield_picto_sos);
+LV_IMAGE_DECLARE(tfield_picto_badge);
+LV_IMAGE_DECLARE(tfield_picto_antenna);
+LV_IMAGE_DECLARE(tfield_picto_walk);
+LV_IMAGE_DECLARE(tfield_picto_battery);
+LV_IMAGE_DECLARE(tfield_picto_moon);
+LV_IMAGE_DECLARE(tfield_picto_tent);
+
 namespace tfield {
 
 using namespace ui;
 
-static constexpr int32_t HEAD_H = 28;
+static constexpr int32_t HEAD_H = 22; // franja gris pizarra
 static constexpr int32_t BODY_H = SCREEN_H - HEAD_H;
-static constexpr int32_t TILE_W = 100, TILE_H = 64;
+static constexpr int32_t MODE_W = 156, MODE_H = 62;
+static constexpr int32_t TILE_W = 77, TILE_H = 25;
+static constexpr uint32_t SLATE_DK = 0x2A353D;
+
+// Modos: lo que cambia cada uno (-1: no lo toca). Si algo se cambia a mano, ninguno calza
+// y el modo queda "personalizado" (no se guarda aparte: se deduce de los ajustes).
+struct Mode {
+    const char *name, *l1, *l2;
+    const lv_image_dsc_t *icon;
+    uint32_t color;
+    int16_t brightness, screen_off_s;
+    int8_t kbd_light, theme, pos_smart;
+    int16_t pos_every_s, track_every_s;
+};
+static const Mode MODES[4] = {
+    {"Terreno", "brillo 80 % \xC2\xB7 pantalla 1 min", "posici\xC3\xB3n cada 2 min", &tfield_picto_walk,
+     col::GREEN, 80, 60, 1, 0, 1, 120, 10},
+    {"Ahorro", "brillo 40 % \xC2\xB7 pantalla 30 s", "posici\xC3\xB3n cada 15 min", &tfield_picto_battery,
+     col::AMBER, 40, 30, 0, -1, 1, 900, 30},
+    {"Noche", "tema oscuro \xC2\xB7 brillo 20 %", "posici\xC3\xB3n cada 5 min", &tfield_picto_moon,
+     col::PURPLE, 20, 30, 0, 1, -1, 300, 10},
+    {"Campamento", "brillo 60 % \xC2\xB7 pantalla 5 min", "posici\xC3\xB3n cada 30 min", &tfield_picto_tent,
+     col::BLUE, 60, 300, 1, -1, 0, 1800, 60},
+};
+
+static bool mode_matches(const Mode &m, const Settings &s)
+{
+    return s.brightness == m.brightness && s.screen_off_s == m.screen_off_s && (m.kbd_light < 0 || s.kbd_light == (m.kbd_light == 1)) &&
+           (m.theme < 0 || s.theme == m.theme) && (m.pos_smart < 0 || s.pos_smart == (m.pos_smart == 1)) &&
+           s.pos_every_s == m.pos_every_s && s.track_every_s == m.track_every_s;
+}
+
+static void mode_apply(const Mode &m, Settings &s)
+{
+    s.brightness = (uint8_t)m.brightness;
+    s.screen_off_s = (uint16_t)m.screen_off_s;
+    if (m.kbd_light >= 0)
+        s.kbd_light = m.kbd_light == 1;
+    if (m.theme >= 0)
+        s.theme = (uint8_t)m.theme;
+    if (m.pos_smart >= 0)
+        s.pos_smart = m.pos_smart == 1;
+    s.pos_every_s = (uint16_t)m.pos_every_s;
+    s.track_every_s = (uint8_t)m.track_every_s;
+}
+
+static const lv_image_dsc_t *section_icon(int i)
+{
+    static const lv_image_dsc_t *ic[SettingsScreen::S_COUNT] = {&tfield_picto_sun,  &tfield_picto_locate, &tfield_picto_mail,
+                                                                &tfield_picto_map16, &tfield_picto_lock,  &tfield_picto_sos,
+                                                                &tfield_picto_badge, &tfield_picto_antenna};
+    return ic[i];
+}
+static const uint32_t SECTION_COLORS[SettingsScreen::S_COUNT] = {col::AMBER, 0x0F6E56,  col::BLUE,  col::GREEN,
+                                                                 col::PURPLE, col::RED, col::SLATE, 0x5F5E5A};
+
+static lv_obj_t *picto(lv_obj_t *parent, const lv_image_dsc_t *src, uint32_t color)
+{
+    lv_obj_t *img = lv_image_create(parent);
+    lv_image_set_src(img, src);
+    lv_obj_set_style_image_recolor(img, c(color), 0);
+    lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
+    return img;
+}
 
 static const char *SECTION_NAMES[SettingsScreen::S_COUNT] = {
-    "Pantalla", "GPS y posici\xC3\xB3n", "Mensajes", "Mapa y puntos", "Canal privado", "SOS", "Nodo y hora", "Avanzado"};
-// en la cuadrícula, nombres cortos (100 px por casilla)
+    "Pantalla", "GPS y posici\xC3\xB3n", "Mensajes", "Mapa y puntos", "Canal privado", "SOS", "Nodo y hora", "Radio"};
+// en Configuración, nombres cortos (76 px por botón)
 static const char *TILE_NAMES[SettingsScreen::S_COUNT] = {"Pantalla", "GPS", "Mensajes", "Mapa", "Canal", "SOS",
-                                                          "Nodo y hora", "Avanzado"};
+                                                          "Nodo", "Radio"};
 
 // ------------------------------------------------------------ ayudas
 // siguiente/anterior de una lista ordenada; si el valor actual no está (p. ej. 70 %), el
@@ -91,35 +171,86 @@ void SettingsScreen::create(App *app)
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
     group = lv_group_create();
 
-    lv_obj_t *h = header_bar(screen, app, group, tr("Ajustes"));
-    esc_ = lv_obj_get_child(h, 0);
-    title_ = lv_obj_get_child(h, 1);
+    // --- Franja gris pizarra: Esc, 4 Ajustes (› sección)
+    lv_obj_t *h = box(screen, 0, 0, SCREEN_W, HEAD_H, col::SLATE);
+    esc_ = button(h, 4, 3, 28, 16, col::SLATE, col::SURF, nullptr);
+    lv_obj_set_style_radius(esc_, 2, 0);
+    lv_obj_set_style_bg_color(esc_, c(SLATE_DK), LV_STATE_PRESSED);
+    lv_obj_set_style_outline_color(esc_, c(col::SURF), LV_STATE_FOCUS_KEY);
+    lv_obj_center(label(esc_, &tfield_font_12b, col::SURF, "Esc"));
+    lv_obj_add_event_cb(
+        esc_, [](lv_event_t *e) { static_cast<App *>(lv_event_get_user_data(e))->back(); }, LV_EVENT_CLICKED, app);
+    lv_obj_t *sq = box(h, 37, 4, 14, 14, col::SURF);
+    lv_obj_set_style_radius(sq, 2, 0);
+    lv_obj_center(label(sq, &tfield_font_12b, col::SLATE, "4"));
+    lv_obj_set_pos(picto(h, &tfield_picto_settings, col::SURF), 55, 3);
+    title_ = label(h, &tfield_font_14b, col::SURF, "");
+    lv_obj_set_pos(title_, 75, 3);
+    lv_obj_set_size(title_, SCREEN_W - 81, 16);
+    lv_label_set_long_mode(title_, LV_LABEL_LONG_MODE_DOTS);
 
-    // Cuadrícula de 3 columnas: cada sección con dos líneas de su estado actual
+    // --- Inicio de ajustes: modos y Configuración
     grid_ = box(screen, 0, HEAD_H, SCREEN_W, BODY_H, col::BG);
+    lv_obj_set_pos(label(grid_, &tfield_font_12b, col::INK2, tr("Modo")), 6, 2);
+    mode_state_ = label(grid_, &tfield_font_12, col::INK2, "");
+    for (int i = 0; i < 4; i++) {
+        const Mode &m = MODES[i];
+        int32_t x = 3 + (i % 2) * (MODE_W + 2), y = 18 + (i / 2) * (MODE_H + 3);
+        lv_obj_t *b = button(grid_, x, y, MODE_W, MODE_H, col::SURF, col::LINE, nullptr);
+        lv_obj_set_style_radius(b, 4, 0);
+        lv_obj_set_style_bg_color(b, c(col::BG), LV_STATE_PRESSED);
+        mode_img_[i] = picto(b, m.icon, m.color);
+        lv_obj_set_pos(mode_img_[i], 7, 5);
+        mode_name_[i] = label(b, &tfield_font_14b, col::INK, tr(m.name));
+        lv_obj_set_pos(mode_name_[i], 30, 5);
+        // botón de radio: anillo vacío; relleno en el modo en uso
+        mode_on_[i] = box(b, MODE_W - 21, 6, 13, 13, col::SURF);
+        lv_obj_set_style_radius(mode_on_[i], LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_border_width(mode_on_[i], 2, 0);
+        lv_obj_set_style_border_color(mode_on_[i], c(col::LINE), 0);
+        lv_obj_add_flag(mode_on_[i], LV_OBJ_FLAG_EVENT_BUBBLE);
+        lv_obj_t *dot = box(mode_on_[i], 0, 0, 5, 5, m.color); // relleno: blanco con el punto del color del modo
+        lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+        lv_obj_center(dot);
+        lv_obj_add_flag(dot, LV_OBJ_FLAG_EVENT_BUBBLE);
+        mode_l1_[i] = label(b, &tfield_font_12, col::INK2, tr(m.l1));
+        lv_obj_set_pos(mode_l1_[i], 7, 27);
+        mode_l2_[i] = label(b, &tfield_font_12, col::INK2, tr(m.l2));
+        lv_obj_set_pos(mode_l2_[i], 7, 42);
+        for (lv_obj_t *l : {mode_l1_[i], mode_l2_[i]}) {
+            lv_obj_set_size(l, MODE_W - 12, 14);
+            lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_DOTS);
+        }
+        lv_obj_set_user_data(b, (void *)(intptr_t)i);
+        lv_obj_add_event_cb(
+            b, [](lv_event_t *e) {
+                auto *s = static_cast<SettingsScreen *>(lv_event_get_user_data(e));
+                int i = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t *)lv_event_get_current_target(e));
+                Settings st = s->app_->settings();
+                mode_apply(MODES[i], st);
+                s->apply(st); // el tema rehace la interfaz después, fuera del evento
+            },
+            LV_EVENT_CLICKED, this);
+        modes_[i] = b;
+    }
+    lv_obj_set_pos(label(grid_, &tfield_font_12b, col::INK2, tr("Configuraci\xC3\xB3n")), 6, 148);
     for (int i = 0; i < S_COUNT; i++) {
-        int32_t x = 6 + (i % 3) * (TILE_W + 4), y = 5 + (i / 3) * (TILE_H + 5);
+        int32_t x = 3 + (i % 4) * (TILE_W + 2), y = 164 + (i / 4) * (TILE_H + 2);
         tiles_[i] = button(grid_, x, y, TILE_W, TILE_H, col::SURF, col::LINE, nullptr);
         lv_obj_set_style_radius(tiles_[i], 4, 0);
         lv_obj_set_style_bg_color(tiles_[i], c(col::BG), LV_STATE_PRESSED);
-        lv_obj_t *t = label(tiles_[i], &tfield_font_14b, col::INK, tr(TILE_NAMES[i]));
-        lv_obj_set_pos(t, 7, 5);
-        lv_obj_set_size(t, TILE_W - 12, 17);
+        lv_obj_t *img = picto(tiles_[i], section_icon(i), SECTION_COLORS[i]);
+        lv_obj_set_pos(img, 3, (TILE_H - 2 - lv_image_get_src_height(img)) / 2);
+        lv_obj_t *t = label(tiles_[i], &tfield_font_12b, col::INK, tr(TILE_NAMES[i]));
+        lv_obj_set_pos(t, 19, 4);
+        lv_obj_set_size(t, TILE_W - 21, 15);
         lv_label_set_long_mode(t, LV_LABEL_LONG_MODE_DOTS);
-        tile_l1_[i] = label(tiles_[i], &tfield_font_12, col::INK2, "");
-        lv_obj_set_pos(tile_l1_[i], 7, 26);
-        tile_l2_[i] = label(tiles_[i], &tfield_font_12, col::INK2, "");
-        lv_obj_set_pos(tile_l2_[i], 7, 42);
-        for (lv_obj_t *l : {tile_l1_[i], tile_l2_[i]}) {
-            lv_obj_set_size(l, TILE_W - 12, 15);
-            lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_DOTS);
-        }
         lv_obj_set_user_data(tiles_[i], (void *)(intptr_t)i);
         lv_obj_add_event_cb(
             tiles_[i], [](lv_event_t *e) {
                 auto *s = static_cast<SettingsScreen *>(lv_event_get_user_data(e));
                 int i = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t *)lv_event_get_current_target(e));
-                s->app_->show_settings_section(i); // queda en el historial: Esc vuelve a la cuadrícula
+                s->app_->show_settings_section(i); // queda en el historial: Esc vuelve al inicio de ajustes
             },
             LV_EVENT_CLICKED, this);
     }
@@ -403,9 +534,11 @@ void SettingsScreen::rebuild_group(int focus_index)
     lv_group_add_obj(group, esc_);
     lv_obj_t *first = nullptr, *want = nullptr;
     if (section_ < 0) {
+        for (int i = 0; i < 4; i++)
+            lv_group_add_obj(group, modes_[i]);
         for (int i = 0; i < S_COUNT; i++)
             lv_group_add_obj(group, tiles_[i]);
-        first = tiles_[0];
+        first = tiles_[0]; // el foco parte en Configuración: Enter no cambia un modo sin querer
     } else {
         for (size_t i = 0; i < rows_.size(); i++) {
             Row &r = rows_[i];
@@ -553,41 +686,28 @@ void SettingsScreen::refresh_rows()
     }
 }
 
+// El modo en uso: el que calza con los ajustes; si ninguno, "personalizado"
 void SettingsScreen::refresh_tiles()
 {
-    const Settings &s = app_->settings();
-    auto set = [&](int i, const std::string &a, const std::string &b) {
-        set_text(tile_l1_[i], a);
-        set_text(tile_l2_[i], b);
-    };
-    set(S_SCREEN, tr("Brillo ") + pct(s.brightness), s.screen_off_s ? tr("Se apaga: ") + secs_text(s.screen_off_s) : tr("Siempre encendida"));
-    set(S_GPS, s.gps ? tr("Env\xC3\xADo: ") + secs_text(s.pos_every_s) : tr("GPS apagado"), tr("Ruta: cada ") + secs_text(s.track_every_s));
-    set(S_MESSAGES, s.team_first ? tr("Equipo arriba") : tr("Por actividad"), tr("4 resp. r\xC3\xA1pidas"));
-    std::string others = policy_name(s.pts_others);
-    others[0] = (char)std::tolower((unsigned char)others[0]);
-    set(S_MAP, s.map_team_only ? tr("Solo mi equipo") : tr("Toda la red"), tr("Otros: ") + others);
-    if (s.channel.on) {
-        int joined = 0, people = 0;
-        for (auto *n : app_->team_people()) {
-            people++;
-            const ChannelMember *m = s.member(n->num);
-            joined += m && m->state == ChannelMember::Joined ? 1 : 0;
-        }
-        set(S_CHANNEL, s.channel.name, std::to_string(joined) + tr(" de ") + std::to_string(people) + tr(" unidos"));
-    } else
-        set(S_CHANNEL, tr("Sin canal"), tr("Crear uno"));
-    set(S_SOS, s.sos_direct ? tr("Canal + directo") : tr("Solo canales"), tr("Cada ") + std::to_string(s.sos_every_min) + tr(" min"));
-    set(S_NODE, s.short_name, tr(time_zones()[s.tz % time_zones().size()].name));
-    set(S_RADIO, std::string(lora_regions()[s.region % lora_regions().size()].name) + " \xC2\xB7 " +
-                     lora_presets()[s.preset % lora_presets().size()].name,
-        std::to_string(s.hops) + tr(" saltos"));
-    // las secciones con opciones de equipo llevan su marca morada
-    for (int i : {(int)S_MESSAGES, (int)S_MAP, (int)S_CHANNEL, (int)S_SOS})
-        if (lv_obj_get_child_count(tiles_[i]) == 3) {
-            lv_obj_t *bar = box(tiles_[i], 0, 0, 3, TILE_H - 2, col::PURPLE);
-            lv_obj_set_style_radius(bar, 0, 0);
-            lv_obj_add_flag(bar, LV_OBJ_FLAG_EVENT_BUBBLE);
-        }
+    const Settings &st = app_->settings();
+    int on = -1;
+    for (int i = 0; i < 4; i++)
+        if (mode_matches(MODES[i], st))
+            on = i;
+    for (int i = 0; i < 4; i++) {
+        bool active = i == on;
+        uint32_t color = MODES[i].color;
+        set_bg(modes_[i], active ? color : col::SURF);
+        set_border_color(modes_[i], active ? color : col::LINE);
+        set_color(mode_name_[i], active ? col::SURF : col::INK);
+        set_color(mode_l1_[i], active ? col::SURF : col::INK2);
+        set_color(mode_l2_[i], active ? col::SURF : col::INK2);
+        lv_obj_set_style_image_recolor(mode_img_[i], c(active ? col::SURF : color), 0);
+        set_border_color(mode_on_[i], active ? col::SURF : col::LINE);
+        show(lv_obj_get_child(mode_on_[i], 0), active);
+    }
+    set_text(mode_state_, on < 0 ? tr("personalizado") : tr("en uso: ") + std::string(tr(MODES[on].name)));
+    ui::align(mode_state_, LV_ALIGN_TOP_RIGHT, -6, 2);
 }
 
 // ---------------------------------------------------------------- secciones
@@ -700,22 +820,20 @@ void SettingsScreen::sec_messages()
 
 void SettingsScreen::sec_map()
 {
-    Row &n = add(CHOICE, tr("Nodos en el mapa"), tr("Tambi\xC3\xA9n se cambia en el mapa, en el bot\xC3\xB3n de capas"), true);
-    n.text = [this] { return std::string(ST.map_team_only ? tr("Mi equipo") : tr("Todos")); };
-    n.step = [this](int d, bool w) {
-        if (!w && ((d > 0) == ST.map_team_only))
-            return; // ya está en el extremo
-        EDIT(s.map_team_only = !s.map_team_only);
+    Row &n = add(TOGGLE, tr("Solo mi equipo en el mapa"), tr("Tambi\xC3\xA9n en el mapa: capa \xC2\xAB" "Otros nodos de la red\xC2\xBB"), true);
+    n.get = [this] { return ST.map_team_only; };
+    n.set = [this](bool x) {
+        EDIT(s.map_team_only = x);
+        return true;
     };
-    Row &t = add(CHOICE, tr("Puntos de mi equipo"), "", true);
-    t.text = [this] { return std::string(policy_name(ST.pts_team)); };
+    Row &t = add(TOGGLE, tr("Guardar solos los puntos de mi equipo"), "", true);
+    t.get = [this] { return ST.pts_team == PointPolicy::Auto; };
     t.detail = [this] {
         return std::string(ST.pts_team == PointPolicy::Auto ? tr("Se agregan solos a tus puntos") : tr("Aparecen en Mensajes con \xC2\xAB" "Guardar punto\xC2\xBB"));
     };
-    t.step = [this](int d, bool w) {
-        if (!w && ((d > 0) == (ST.pts_team == PointPolicy::Ask)))
-            return;
-        EDIT(s.pts_team = s.pts_team == PointPolicy::Auto ? PointPolicy::Ask : PointPolicy::Auto);
+    t.set = [this](bool x) {
+        EDIT(s.pts_team = x ? PointPolicy::Auto : PointPolicy::Ask);
+        return true;
     };
     Row &o = add(CHOICE, tr("Puntos de otros nodos"), "", true);
     o.text = [this] { return std::string(policy_name(ST.pts_others)); };

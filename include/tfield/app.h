@@ -261,7 +261,9 @@ class SettingsScreen {
     App *app_ = nullptr;
     int section_ = -1;
     lv_obj_t *esc_ = nullptr, *title_ = nullptr, *grid_ = nullptr, *page_ = nullptr;
-    lv_obj_t *tiles_[S_COUNT]{}, *tile_l1_[S_COUNT]{}, *tile_l2_[S_COUNT]{};
+    lv_obj_t *tiles_[S_COUNT]{};
+    lv_obj_t *modes_[4]{}, *mode_img_[4]{}, *mode_name_[4]{}, *mode_on_[4]{}, *mode_l1_[4]{}, *mode_l2_[4]{},
+             *mode_state_ = nullptr;
     std::vector<Row> rows_;
     std::string sig_; // Canal privado: se reconstruye si cambia el canal o el equipo
     // Avanzado: los cambios de radio esperan "Aplicar"

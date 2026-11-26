@@ -557,6 +557,48 @@ APP_TEST(ajustes_todas_las_filas)
     CHECK(targets >= 1);
 }
 
+APP_TEST(ajustes_modos)
+{
+    app->show(ScreenId::Settings);
+    lv_group_t *g = app->settings_screen.group;
+    // Esc, 4 modos, 8 secciones; el foco parte en Configuración › Pantalla
+    CHECK_EQ((int)lv_group_get_obj_count(g), 13);
+    CHECK(th::visible_text("personalizado")); // los ajustes de fábrica no calzan con ningún modo
+    // Ahorro: brillo 40 %, pantalla 30 s, teclado apagado, posición cada 15 min (antes si me muevo), ruta 30 s
+    lv_obj_send_event(lv_group_get_obj_by_index(g, 2), LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    const Settings &s = app->settings();
+    CHECK_EQ((int)s.brightness, 40);
+    CHECK_EQ((int)s.screen_off_s, 30);
+    CHECK(!s.kbd_light);
+    CHECK_EQ((int)s.pos_every_s, 900);
+    CHECK(s.pos_smart);
+    CHECK_EQ((int)s.track_every_s, 30);
+    CHECK_EQ((int)s.theme, 0); // Ahorro no toca el tema
+    CHECK(th::visible_text("en uso: Ahorro"));
+    CHECK(!th::visible_text("personalizado"));
+    // Campamento: sin "antes si me muevo"
+    lv_obj_send_event(lv_group_get_obj_by_index(app->settings_screen.group, 4), LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK_EQ((int)app->settings().pos_every_s, 1800);
+    CHECK(!app->settings().pos_smart);
+    CHECK_EQ((int)app->settings().screen_off_s, 300);
+    // un cambio a mano: el modo pasa a personalizado
+    app->show_settings_section(SettingsScreen::S_SCREEN);
+    th::key(LV_KEY_RIGHT); // Brillo 60 → 80
+    CHECK_EQ((int)app->settings().brightness, 80);
+    th::key(LV_KEY_ESC);
+    CHECK_EQ(app->settings_screen.section(), -1);
+    CHECK(th::visible_text("personalizado"));
+    // Noche: tema oscuro (rehace la interfaz)
+    lv_obj_send_event(lv_group_get_obj_by_index(app->settings_screen.group, 3), LV_EVENT_CLICKED, nullptr);
+    th::tick(60);
+    CHECK_EQ((int)app->settings().theme, 1);
+    CHECK_EQ((int)app->settings().brightness, 20);
+    CHECK(app->current() == ScreenId::Settings);
+    CHECK(th::visible_text("en uso: Noche"));
+}
+
 APP_TEST(ajustes_radio_confirmar)
 {
     app->show(ScreenId::Settings);

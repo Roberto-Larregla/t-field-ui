@@ -24,7 +24,7 @@ La interfaz está en **español e inglés**, con tema **claro, oscuro o automát
 - **Mapa:** mapa base desde la tarjeta SD o cuadrícula UTM; puntos (P1, P2…), rutas grabadas en GPX (R1, R2…), regla, destino y rastro de cada compañero. Va limpio, sin nombres encima: al tocar un marcador (o recorrerlos con ← →) aparece su ficha con distancia y desnivel, y el botón de **capas** muestra u oculta cada capa (mi equipo, otros nodos de la red, puntos compartidos, mis puntos) y elige cuáles llevan nombre, por capa o, dentro de una, uno por uno. Quien está fuera de la vista aparece en el borde con una flecha.
 - **Equipo:** una ficha por compañero con distancia y rumbo (flecha), desnivel, batería y señal; «Mi equipo» y toda la red, que se deslizan hacia abajo cuando no caben (con "5–8 de 12"); ficha de cada nodo con sus acciones, pedir posiciones a todos y ruta de señal.
 - **SOS:** por el canal y directo a cada miembro, mostrando quién lo recibió.
-- **Ajustes:** pantalla (brillo, tema e idioma), GPS, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio.
+- **Ajustes:** cuatro modos de un toque (Terreno, Ahorro, Noche y Campamento: brillo, apagado de pantalla, luz del teclado, tema y cada cuánto se envía la posición); si cambias algo a mano, el modo queda "personalizado". Abajo, Configuración: pantalla, GPS, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio, con interruptores para las opciones de sí o no.
 - **Modo oscuro:** no encandila de noche y atenúa el mapa base. En la pantalla IPS de la T-Deck no ahorra batería: eso lo hace el brillo.
 - **Teclado y bola:** todo se puede usar sin tocar la pantalla.
 
@@ -105,8 +105,8 @@ Para hacer teselas con tus propios mapas en [QGIS](https://qgis.org): *Caja de h
 
 Ajustes es la ficha 4 del inicio (o la tecla `4`).
 
-1. **Ajustes › Pantalla:** idioma, tema y brillo.
-2. **Ajustes › Avanzado:** la **región LoRa** de tu país (ver la [lista de Meshtastic](https://meshtastic.org/docs/configuration/region-by-country/)) y el **preset**. Todos los equipos del grupo necesitan la misma región y el mismo preset. Aplicar reinicia la radio.
+1. **Ajustes › Pantalla:** idioma, tema y brillo. Los modos de arriba cambian varios ajustes de una vez.
+2. **Ajustes › Radio:** la **región LoRa** de tu país (ver la [lista de Meshtastic](https://meshtastic.org/docs/configuration/region-by-country/)) y el **preset**. Todos los equipos del grupo necesitan la misma región y el mismo preset. Aplicar reinicia la radio.
 3. **Ajustes › Nodo y hora:** nombre corto (4 caracteres), nombre largo y zona horaria.
 4. **Equipo › Toda la red:** abre la ficha de cada compañero y elige **Agregar a equipo**. Desde ahí aparecen en el inicio con distancia y rumbo.
 5. **Ajustes › Canal privado** (opcional): crea el canal e invita a tu equipo. Las invitaciones van cifradas de extremo a extremo, así que solo llegan a nodos cuya clave pública tu equipo ya conoce (nodos que ha escuchado).
@@ -137,12 +137,22 @@ lv_font_conv --no-compress --bpp 4 --size 12 --font src/AtkinsonHyperlegible-Reg
   --format lvgl --lv-include lvgl.h --lv-font-name tfield_font_12 -o tfield_font_12.c
 ```
 
-Los pictogramas del inicio (`tfield_pictos.c`) salen de Tabler Icons con `pictos.py` (necesita `rsvg-convert` y Pillow):
+Los pictogramas (`tfield_pictos.c`) salen de Tabler Icons con `pictos.py` (necesita `rsvg-convert` y Pillow):
 
 ```sh
 npm pack @tabler/icons@3 && tar xzf tabler-icons-*.tgz
 python3 pictos.py package/icons/outline > tfield_pictos.c
 ```
+
+La imagen de pantallas al inicio de este README se arma con las capturas del simulador, desde la raíz del repositorio:
+
+```sh
+./build/sim_png /tmp/es es claro && ./build/sim_png /tmp/eso es oscuro
+python3 sim/raw2png.py /tmp/es && python3 sim/raw2png.py /tmp/eso
+python3 sim/composite.py /tmp/es /tmp/eso docs/img/pantallas.png es
+```
+
+(lo mismo con `en` para `docs/img/screens-en.png`).
 </details>
 
 ## Créditos

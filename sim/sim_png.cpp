@@ -185,6 +185,16 @@ int main(int argc, char **argv)
     app.show(tfield::ScreenId::Home);
     app.show(tfield::ScreenId::Settings);
     render(out + "/ajustes.raw");
+    { // un modo en uso (Campamento no toca el tema: el resto de las capturas sigue igual)
+        tfield::Settings before = app.settings();
+        click(lv_group_get_obj_by_index(app.settings_screen.group, 4));
+        for (int i = 0; i < 3; i++) {
+            lv_tick_inc(10);
+            lv_timer_handler();
+        }
+        render(out + "/ajustes_modo.raw");
+        app.update_settings(before);
+    }
     const char *names[] = {"pantalla", "gps", "mensajes", "mapa", "canal", "sos", "nodo", "radio"};
     for (int i = 0; i < tfield::SettingsScreen::S_COUNT; i++) {
         app.show_settings_section(i);
@@ -197,8 +207,8 @@ int main(int argc, char **argv)
         }
         app.back();
     }
-    // Avanzado con un cambio pendiente y la confirmación armada
-    app.show_settings_section(8);
+    // Radio con un cambio pendiente y la confirmación armada
+    app.show_settings_section(tfield::SettingsScreen::S_RADIO);
     {
         lv_group_t *g = app.settings_screen.group;
         lv_obj_t *preset = lv_group_get_obj_by_index(g, 2);
