@@ -435,11 +435,12 @@ APP_TEST(hw_250_nodos)
     lv_obj_send_event(lv_group_get_obj_by_index(app->team_screen.group, 2), LV_EVENT_CLICKED, nullptr);
     th::tick(100);
     CHECK(th::visible_text("Se muestran los 50"));
-    int rows = 0;
+    int tiles = 0; // fichas (156 px de ancho): mi equipo + los 50 ajenos más cercanos
     lv_group_t *g = app->team_screen.group;
     for (uint32_t i = 0; i < lv_group_get_obj_count(g); i++)
-        rows += lv_obj_get_width(lv_group_get_obj_by_index(g, i)) == 320 ? 1 : 0;
-    CHECK(rows <= 4 + 50 + 1);
+        tiles += lv_obj_get_width(lv_group_get_obj_by_index(g, i)) == 156 ? 1 : 0;
+    CHECK(tiles >= 50);
+    CHECK(tiles <= 6 + 50);
     CHECK(app->share_recipients().size() <= 3 + SHARE_OTHERS + 40 + 3);
     int before = th::count_objects();
     app->show(ScreenId::Map);

@@ -170,10 +170,12 @@ class TeamScreen {
     lv_group_t *group = nullptr;
 
   private:
-    struct Row {
-        lv_obj_t *row, *dot, *name, *lname, *heard, *bars, *dist, *alt, *bat, *pct, *hops;
+    struct Row { // una ficha
+        lv_obj_t *row, *band, *name, *lname, *heard, *dist, *unit, *arrow, *card, *alt, *bat, *bat_fill, *pct, *bars,
+            *hops;
     };
     void rebuild_list();
+    void update_pager();
     void refresh_detail();
     void set_filter(bool all);
     const TeamNode *find(uint32_t num) const;
@@ -183,14 +185,17 @@ class TeamScreen {
     std::vector<uint32_t> row_nums_;
     bool show_all_ = false, dirty_ = false;
     lv_obj_t *seg_[2]{}, *seg_lbl_[2]{}, *summary_ = nullptr, *list_ = nullptr;
-    lv_obj_t *ask_all_ = nullptr, *ask_all_lbl_ = nullptr, *more_ = nullptr;
+    lv_obj_t *ask_all_ = nullptr, *ask_all_lbl_ = nullptr, *more_ = nullptr, *pager_ = nullptr, *note_bar_ = nullptr;
     std::string note_;
     uint32_t note_color_ = 0;
     lv_timer_t *note_timer_ = nullptr, *ask_timer_ = nullptr;
     // ficha
-    lv_obj_t *detail_ = nullptr, *d_dot_ = nullptr, *d_name_ = nullptr, *d_role_ = nullptr, *d_status_ = nullptr;
-    lv_obj_t *d_val_[8]{}, *d_pos_lbl_ = nullptr;
-    lv_obj_t *d_btn_[6]{}, *d_btn_lbl_[6]{};
+    lv_obj_t *detail_ = nullptr, *d_band_ = nullptr, *d_esc_ = nullptr, *d_name_ = nullptr, *d_role_ = nullptr,
+             *d_status_ = nullptr;
+    lv_obj_t *d_big_ = nullptr, *d_arrow_ = nullptr, *d_dist_ = nullptr, *d_dist_unit_ = nullptr, *d_bear_ = nullptr;
+    lv_obj_t *d_tile_[4]{}, *d_tlbl_[4]{}, *d_tval_[4]{};
+    lv_obj_t *d_pos_lbl_ = nullptr, *d_pos_ = nullptr, *d_hw_ = nullptr;
+    lv_obj_t *d_btn_[6]{}, *d_btn_img_[6]{}, *d_btn_lbl_[6]{};
     lv_group_t *detail_group_ = nullptr;
     uint32_t detail_num_ = 0;
     std::string status_text_;

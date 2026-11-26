@@ -161,6 +161,11 @@ int main(int argc, char **argv)
     render(out + "/equipo.raw");
     click(lv_group_get_obj_by_index(app.team_screen.group, 2)); // Toda la red
     render(out + "/equipo_red.raw");
+    { // más abajo en la lista (la bola sobre una ficha lejana): "5–8 de 6"
+        lv_group_t *g = app.team_screen.group;
+        lv_group_focus_obj(lv_group_get_obj_by_index(g, lv_group_get_obj_count(g) - 1));
+        render(out + "/equipo_red_abajo.raw");
+    }
     app.show_node(2);
     app.traceroute_result(2, "GEO1 \xE2\x80\xBA GEO2, directo \xC2\xB7 SNR 6,5 dB");
     render(out + "/equipo_ficha.raw");

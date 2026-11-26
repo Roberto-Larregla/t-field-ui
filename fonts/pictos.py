@@ -26,6 +26,16 @@ PICTOS = [
     ("tfield_picto_layers", "stack-2", 17, 2.2),
     ("tfield_picto_eye", "eye", 14, 2.3),
     ("tfield_picto_tag", "tag", 14, 2.3),
+    # Equipo: rumbo (se gira) y botones de la ficha
+    ("tfield_picto_arrow", "arrow-up", 20, 2.6),
+    ("tfield_picto_arrow_big", "arrow-up", 30, 2.4),
+    ("tfield_picto_mail16", "mail", 16, 2.2),
+    ("tfield_picto_map16", "map-2", 16, 2.2),
+    ("tfield_picto_nav", "navigation", 16, 2.2),
+    ("tfield_picto_locate", "current-location", 16, 2.2),
+    ("tfield_picto_route", "route", 16, 2.2),
+    ("tfield_picto_user_plus", "user-plus", 16, 2.2),
+    ("tfield_picto_user_minus", "user-minus", 16, 2.2),
 ]
 
 
