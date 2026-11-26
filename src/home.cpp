@@ -1,9 +1,10 @@
 // Pantalla de inicio "Mosaico": cabecera con hora y barra de luz del día, y fichas de color
 // que a la vez son los accesos (1 Mensajes, 2 Equipo, 3 Mapa, 4 Ajustes) más el SOS.
 //
-//   0 ┌ 14:32  vie 20 nov · 5 h 54 de luz        GEO1 ┐
-//     │        06:27 ▬▬▬▬▬▬|▬▬▬▬ 20:26     ▭ 82% GPS 9 │
-//  35 ├ 1 Mensajes ─────────────┬ 2 Equipo ─────────┤
+//   0 ┌  14:32       5 h 54 de luz (o de noche)  GEO1 ┐
+//     │ vie 20 nov  ▬▬▬▬▬▬▬▬▬|▬▬▬▬▬▬   ▭ 82% GPS 9 │
+//     │             06:27          20:26             │
+//  42 ├ 1 Mensajes ─────────────┬ 2 Equipo ─────────┤
 //     │ chats (3 a la vista)     │ equipo (3 a la    │
 //     │                          │ vista)            │
 // 160 ├ Responder a …  ──────────┼ 3 Mapa ─┬ 4 Ajus ─┤
@@ -27,9 +28,9 @@ namespace tfield {
 
 using namespace ui;
 
-static constexpr int32_t TOP_H = 33;   // cabecera (incluye línea)
+static constexpr int32_t TOP_H = 40;   // cabecera (incluye línea)
 static constexpr int32_t GAP = 3;      // separación entre fichas
-static constexpr int32_t ROW1_Y = 35, ROW1_H = 122;
+static constexpr int32_t ROW1_Y = TOP_H + 2, ROW1_H = 115;
 static constexpr int32_t ROW2_Y = ROW1_Y + ROW1_H + GAP, ROW2_H = 78;
 static constexpr int32_t LEFT_W = 196;                // Mensajes y respuestas
 static constexpr int32_t RIGHT_X = GAP + LEFT_W + GAP; // Equipo, Mapa, Ajustes, SOS
@@ -37,8 +38,10 @@ static constexpr int32_t RIGHT_W = SCREEN_W - GAP - RIGHT_X;
 static constexpr int32_t MAP_W = 62;
 static constexpr int32_t SIDE_X = RIGHT_X + MAP_W + GAP, SIDE_W = SCREEN_W - GAP - SIDE_X;
 static constexpr int32_t BAND_H = 18; // franja de color con número, dibujo y nombre
-static constexpr int32_t ROW_H = 34;  // fila de chat o de equipo (2 renglones)
-static constexpr int32_t BAR_X = 103, BAR_W = 78; // barra de luz del día
+static constexpr int32_t ROW_H = 32;  // fila de chat o de equipo (2 renglones)
+static constexpr int32_t CLOCK_X = 6, CLOCK_W = 62;  // hora, y la fecha centrada debajo
+static constexpr int32_t BAR_X = 78, BAR_W = 134;    // barra de luz, centrada bajo lo que queda
+static constexpr int32_t BAR_Y = 17;     // y bajo ella, en una línea: fecha, horas y GPS (y=25)
 
 static const lv_image_dsc_t *picto(int i)
 {
@@ -108,25 +111,36 @@ void HomeScreen::create(App *app)
     // --- Cabecera: hora, fecha, luz del día, nodo propio
     lv_obj_t *top = box(screen, 0, 0, SCREEN_W, TOP_H, col::SURF);
     border(top, col::INK, 1, LV_BORDER_SIDE_BOTTOM);
+    // columna 1: hora y, centrada debajo, la fecha
     clock_ = label(top, &tfield_font_24b, col::INK, "--:--");
-    lv_obj_set_pos(clock_, 6, 2);
+    lv_obj_set_pos(clock_, CLOCK_X, 3);
+    lv_obj_set_width(clock_, CLOCK_W);
+    lv_obj_set_style_text_align(clock_, LV_TEXT_ALIGN_CENTER, 0);
     date_ = label(top, &tfield_font_12, col::INK2, "");
-    lv_obj_set_pos(date_, 72, 2);
+    lv_obj_set_pos(date_, CLOCK_X - 4, 25);
+    lv_obj_set_width(date_, CLOCK_W + 8);
+    lv_obj_set_style_text_align(date_, LV_TEXT_ALIGN_CENTER, 0);
+    // columna 2: luz (o noche) que queda y, centrada debajo, la barra de la salida a la
+    // puesta del sol: gris lo que pasó, ámbar lo que queda; bajo sus extremos, las horas
     daylight_ = label(top, &tfield_font_12b, col::AMBER, "");
-    name_ = label(top, &tfield_font_12b, col::INK, "");
-    ui::align(name_, LV_ALIGN_TOP_RIGHT, -6, 2);
-    // barra: de la salida a la puesta del sol; gris lo que pasó, ámbar la luz que queda
-    rise_ = label(top, &tfield_font_12, col::INK2, "");
-    lv_obj_set_pos(rise_, 72, 16);
-    bar_ = box(top, BAR_X, 21, BAR_W, 6, col::LINE);
+    // ancho justo al texto (al cambiar el minuto se redibuja solo eso), centrado sobre la barra
+    ui::align(daylight_, LV_ALIGN_TOP_MID, BAR_X + BAR_W / 2 - SCREEN_W / 2, 2);
+    bar_ = box(top, BAR_X, BAR_Y, BAR_W, 6, col::LINE);
     lv_obj_set_style_radius(bar_, 3, 0);
     lv_obj_set_style_clip_corner(bar_, true, 0);
     bar_left_ = box(bar_, 0, 0, 0, 6, col::AMBER);
-    now_mark_ = box(top, BAR_X, 18, 2, 12, col::INK);
+    now_mark_ = box(top, BAR_X, BAR_Y - 2, 2, 10, col::INK);
+    rise_ = label(top, &tfield_font_12, col::INK2, "");
+    lv_obj_set_pos(rise_, BAR_X, BAR_Y + 8);
     set_ = label(top, &tfield_font_12, col::INK2, "");
-    lv_obj_set_pos(set_, BAR_X + BAR_W + 3, 16);
+    lv_obj_set_pos(set_, BAR_X, BAR_Y + 8);
+    lv_obj_set_width(set_, BAR_W);
+    lv_obj_set_style_text_align(set_, LV_TEXT_ALIGN_RIGHT, 0);
+    // columna 3: nodo propio, batería y GPS
+    name_ = label(top, &tfield_font_12b, col::INK, "");
+    ui::align(name_, LV_ALIGN_TOP_RIGHT, -6, 3);
     gps_ = label(top, &tfield_font_12b, col::INK, "");
-    ui::align(gps_, LV_ALIGN_TOP_RIGHT, -6, 16);
+    ui::align(gps_, LV_ALIGN_TOP_RIGHT, -6, 24);
     bat_pct_ = label(top, &tfield_font_12b, col::INK, "");
     bat_ = battery(top, 0, 0);
 
@@ -232,33 +246,46 @@ void HomeScreen::set_status(const Status &s)
     set_text(clock_, buf);
     set_text(date_, s.day.empty() ? std::string() : s.day + " " + s.month);
 
-    // luz del día: texto y barra (gris lo que pasó desde la salida del sol, ámbar lo que queda)
-    int rise = hhmm_min(s.sunrise), set = hhmm_min(s.sunset);
+    // Luz o noche que queda, y debajo su barra: de día va de la salida a la puesta del sol
+    // (ámbar lo que queda); de noche, de la puesta a la salida (pizarra lo que queda).
+    // Gris lo que ya pasó; la marca es la hora actual.
+    int rise = hhmm_min(s.sunrise), set = hhmm_min(s.sunset), now = s.hour * 60 + s.minute;
     bool sun = s.daylight_min >= 0 && s.epoch && rise >= 0 && set > rise;
-    if (s.daylight_min > 0) {
-        set_text(daylight_, format_daylight(s.daylight_min) + tr(" de luz"));
+    bool day = s.daylight_min > 0;
+    int32_t span = 0, left = 0; // minutos del tramo (día o noche) y los que quedan
+    if (sun && day) {
+        span = set - rise;
+        left = s.daylight_min;
+    } else if (sun) {
+        span = 1440 - set + rise;
+        left = now >= set ? 1440 - now + rise : rise - now;
+        left = LV_CLAMP(0, left, span);
+    }
+    if (sun && day) {
+        set_text(daylight_, format_daylight(left) + tr(" de luz"));
         set_color(daylight_, col::AMBER);
-    } else if (s.daylight_min == 0) {
-        set_text(daylight_, tr("Noche"));
-        set_color(daylight_, col::INK2);
+    } else if (sun) {
+        set_text(daylight_, format_daylight(left) + tr(" de noche"));
+        set_color(daylight_, col::SLATE);
     } else {
-        set_text(daylight_, tr("Sin posici\xC3\xB3n"));
+        set_text(daylight_, s.daylight_min == 0 ? tr("Noche") : tr("Sin posici\xC3\xB3n"));
         set_color(daylight_, col::INK2);
     }
-    ui::align_to(daylight_, date_, LV_ALIGN_OUT_RIGHT_MID, s.day.empty() ? 0 : 6, 0);
+    ui::align(daylight_, LV_ALIGN_TOP_MID, BAR_X + BAR_W / 2 - SCREEN_W / 2, sun ? 2 : 13); // sin barra: al medio
     show(rise_, sun);
     show(set_, sun);
     show(bar_, sun);
-    show(now_mark_, sun && s.daylight_min > 0);
+    show(now_mark_, sun);
     if (sun) {
-        set_text(rise_, s.sunrise);
-        set_text(set_, s.sunset);
-        int32_t left = s.daylight_min > 0 ? LV_CLAMP(0, s.daylight_min * BAR_W / (set - rise), BAR_W) : 0;
-        if (lv_obj_get_x(bar_left_) != BAR_W - left || lv_obj_get_width(bar_left_) != left) {
-            lv_obj_set_pos(bar_left_, BAR_W - left, 0);
-            lv_obj_set_width(bar_left_, left);
+        set_text(rise_, day ? s.sunrise : s.sunset); // extremos del tramo
+        set_text(set_, day ? s.sunset : s.sunrise);
+        int32_t w = LV_CLAMP(0, left * BAR_W / span, BAR_W);
+        set_bg(bar_left_, day ? col::AMBER : col::SLATE);
+        if (lv_obj_get_x(bar_left_) != BAR_W - w || lv_obj_get_width(bar_left_) != w) {
+            lv_obj_set_pos(bar_left_, BAR_W - w, 0);
+            lv_obj_set_width(bar_left_, w);
         }
-        lv_obj_set_pos(now_mark_, BAR_X + LV_CLAMP(0, BAR_W - left - 1, BAR_W - 2), 18);
+        lv_obj_set_pos(now_mark_, BAR_X + LV_CLAMP(0, BAR_W - w - 1, BAR_W - 2), BAR_Y - 2);
     }
 
     set_text(name_, s.short_name);
@@ -315,7 +342,7 @@ void HomeScreen::set_team(const std::vector<TeamNode> &team)
         r.bars = signal_bars(r.row, 0, 0);
         // renglón 2: distancia y rumbo · desnivel
         r.dist = label(r.row, &tfield_font_12b, col::INK, "");
-        lv_obj_set_pos(r.dist, 4, 17);
+        lv_obj_set_pos(r.dist, 4, 16);
         r.alt = label(r.row, &tfield_font_12, col::INK, "");
         r.heard = nullptr;
         team_rows_.push_back(r);
@@ -388,15 +415,15 @@ void HomeScreen::set_chats(const std::vector<Chat> &chats)
         r.row = button(chat_list_, 0, 0, cw, ROW_H, col::SURF, 0, nullptr);
         lv_obj_set_style_radius(r.row, 0, 0);
         border(r.row, col::LINE2, 1, LV_BORDER_SIDE_BOTTOM);
-        r.dot = box(r.row, 5, 6, 6, 6, col::BLUE);
+        r.dot = box(r.row, 5, 5, 6, 6, col::BLUE);
         lv_obj_set_style_radius(r.dot, LV_RADIUS_CIRCLE, 0);
         r.name = label(r.row, &tfield_font_12b, col::INK, "");
-        lv_obj_set_pos(r.name, 14, 2);
+        lv_obj_set_pos(r.name, 14, 1);
         r.tag = label(r.row, &tfield_font_12, col::INK2, "");
         r.time = label(r.row, &tfield_font_12, col::INK2, "");
-        ui::align(r.time, LV_ALIGN_TOP_RIGHT, -5, 2);
+        ui::align(r.time, LV_ALIGN_TOP_RIGHT, -5, 1);
         r.preview = label(r.row, &tfield_font_12, col::INK, "");
-        lv_obj_set_pos(r.preview, 5, 17);
+        lv_obj_set_pos(r.preview, 5, 16);
         lv_obj_set_size(r.preview, cw - 10, 14);
         lv_label_set_long_mode(r.preview, LV_LABEL_LONG_MODE_DOTS);
         lv_obj_set_user_data(r.row, (void *)(intptr_t)chat_rows_.size());

@@ -62,6 +62,7 @@
 {"Sin equipo todav\xC3\xAD" "a.\nM\xC3\xA1rcalo en Equipo \xE2\x80\xBA Toda la red \xE2\x80\xBA ficha del nodo.", "No team yet.\nAdd it in Team \xE2\x80\xBA Whole mesh \xE2\x80\xBA node card."},
 {"Elige un chat para responder", "Pick a chat to reply"},
 {" de luz", " of daylight"},
+{" de noche", " of night"},
 {"Puesta ", "Sunset "},
 {"Noche", "Night"},
 {"Sale el sol ", "Sunrise "},
