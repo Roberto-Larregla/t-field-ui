@@ -554,7 +554,7 @@ void TeamScreen::update_pager()
     }
     int32_t sy = lv_obj_get_scroll_y(list_);
     int32_t row = (sy + (TILE_H + TILE_GAP) / 2) / (TILE_H + TILE_GAP);
-    size_t first = std::min(n, (size_t)std::max(0, row) * 2 + 1);
+    size_t first = std::min(n, (size_t)std::max<int32_t>(0, row) * 2 + 1);
     size_t last = std::min(n, first + 3);
     char buf[32];
     snprintf(buf, sizeof(buf), tr("%u\xE2\x80\x93%u de %u"), (unsigned)first, (unsigned)last, (unsigned)n);
