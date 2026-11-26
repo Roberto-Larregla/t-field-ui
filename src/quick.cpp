@@ -115,6 +115,12 @@ bool QuickScreen::handle_esc()
     return true;
 }
 
+void QuickScreen::focus_field(int i)
+{
+    if (i >= 0 && i < 4 && inputs_[i])
+        lv_group_focus_obj(inputs_[i]);
+}
+
 void QuickScreen::refresh()
 {
     char buf[12];

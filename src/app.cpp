@@ -201,6 +201,7 @@ void App::set_team(const std::vector<TeamNode> &team)
         if (n.in_team)
             mine.push_back(n);
     home.set_team(mine);
+    messages_screen.refresh_meta();
     map_screen.set_team(team_);
     team_screen.set_nodes(team_);
     // con 250 nodos llega telemetría seguido: los chats solo se reordenan si cambió el equipo
@@ -1346,6 +1347,7 @@ void App::set_quick(const QuickReplies &q)
             if (t == o[0])
                 t = o[1];
     home.set_quick(quick_);
+    messages_screen.refresh_chips();
 }
 
 std::string App::now_hhmm() const
@@ -1477,6 +1479,12 @@ bool App::handle_key(uint32_t key)
     if (current_ == ScreenId::Home && !typing && key >= '1' && key <= '4') {
         static const ScreenId tabs[] = {ScreenId::Messages, ScreenId::Team, ScreenId::Map, ScreenId::Settings};
         show(tabs[key - '1']);
+        return true;
+    }
+    // en Mensajes, ← → sobre las pestañas cambian de chat
+    if (current_ == ScreenId::Messages && !typing && (key == LV_KEY_LEFT || key == LV_KEY_RIGHT) &&
+        messages_screen.on_tab()) {
+        messages_screen.step_chat(key == LV_KEY_LEFT ? -1 : 1);
         return true;
     }
     // en Mensajes, escribir lleva directo al cuadro de texto
@@ -1699,6 +1707,23 @@ bool App::is_team_chat(const Chat &ch) const
 }
 
 bool App::chat_outside_team(const Chat &ch) const { return !is_team_chat(ch); }
+
+const TeamNode *App::chat_node(const Chat &ch) const
+{
+    if (ch.is_channel)
+        return nullptr;
+    for (auto &n : team_)
+        if (ch.id == "node:" + std::to_string(n.num) || ch.name == n.name)
+            return &n;
+    return nullptr;
+}
+
+void App::edit_quick(int i)
+{
+    show(ScreenId::QuickReplies);
+    if (i >= 0)
+        quick_screen.focus_field(i);
+}
 
 // ------------------------------------------------------------- borrar chats
 void App::forget_chat(const std::string &chat_id, bool remove)

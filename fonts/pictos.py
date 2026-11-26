@@ -22,6 +22,7 @@ PICTOS = [
     ("tfield_picto_users", "users", 14, 2.4),
     ("tfield_picto_map", "map-2", 28, 2.0),
     ("tfield_picto_settings", "settings", 16, 2.3),
+    ("tfield_picto_pencil", "pencil", 14, 2.4),
 ]
 
 

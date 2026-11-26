@@ -33,6 +33,7 @@
 {"SOS activo \xC2\xB7 %u de %u lo recibieron \xC2\xB7 toca para ver", "SOS active \xC2\xB7 %u of %u received it \xC2\xB7 tap to view"},
 {"SOS cancelado ", "SOS cancelled "},
 {"directo", "direct"},
+{"a ", ""},
 {"directo \xC2\xB7 fuera del equipo", "direct \xC2\xB7 outside the team"},
 {"grupo \xC2\xB7 canal privado de tu equipo", "group \xC2\xB7 your team's private channel"},
 {"grupo \xC2\xB7 canal p\xC3\xBA" "blico, todos los nodos", "group \xC2\xB7 public channel, all nodes"},

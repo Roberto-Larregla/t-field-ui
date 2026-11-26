@@ -149,7 +149,7 @@ APP_TEST(borrado_automatico_por_dias)
     CHECK(unknown > 0);
 }
 
-APP_TEST(cabecera_con_nombre_largo)
+APP_TEST(pestana_con_nombre_largo)
 {
     std::vector<Chat> chats = app->chats();
     Chat c;
@@ -160,30 +160,43 @@ APP_TEST(cabecera_con_nombre_largo)
     app->open_chat("node:99");
     app->show(ScreenId::Messages);
     th::tick(30);
-    // el título no llega al botón Borrar y "mensaje directo" se oculta
+    // la pestaña no crece sin límite (el nombre se corta con "...")
+    lv_obj_t *tab = nullptr;
+    lv_group_t *g = app->messages_screen.group;
+    for (uint32_t i = 0; i < lv_group_get_obj_count(g); i++) {
+        lv_obj_t *o = lv_group_get_obj_by_index(g, i);
+        for (uint32_t k = 0; k < lv_obj_get_child_count(o); k++) {
+            lv_obj_t *l = lv_obj_get_child(o, (int32_t)k);
+            if (lv_obj_check_type(l, &lv_label_class) && std::string(lv_label_get_text(l)).find("Brigada") == 0)
+                tab = o;
+        }
+    }
+    CHECK(tab != nullptr);
+    if (tab)
+        CHECK(lv_obj_get_width(tab) <= 150);
+    // los datos del chat no llegan al botón Borrar
     lv_obj_t *del = find_text(app->messages_screen.group, "Borrar");
     CHECK(del != nullptr);
     if (!del)
         return;
     lv_area_t b;
     lv_obj_get_coords(del, &b);
-    CHECK(!th::visible_text("mensaje directo"));
-    bool title_ok = false;
+    bool meta_ok = false;
     lv_obj_t *hdr = lv_obj_get_parent(del);
     for (uint32_t k = 0; k < lv_obj_get_child_count(hdr); k++) {
         lv_obj_t *l = lv_obj_get_child(hdr, (int32_t)k);
-        if (lv_obj_check_type(l, &lv_label_class) && std::string(lv_label_get_text(l)).find("Brigada") == 0) {
+        if (lv_obj_check_type(l, &lv_label_class) && std::string(lv_label_get_text(l)) == "mensaje directo") {
             lv_area_t a;
             lv_obj_get_coords(l, &a);
-            title_ok = a.x2 < b.x1;
+            meta_ok = a.x2 < b.x1;
         }
     }
-    CHECK(title_ok);
-    // un nombre corto vuelve a mostrar "mensaje directo"
+    CHECK(meta_ok); // nodo desconocido: sin distancia
+    // un compañero con posición: a cuánto y hace cuánto se le escuchó
     app->show_node(2);
     app->open_direct_chat(2);
     th::tick(30);
-    CHECK(th::visible_text("mensaje directo"));
+    CHECK(th::visible_text("directo \xC2\xB7 a "));
 }
 
 APP_TEST(estado_del_mensaje_enviado)
@@ -220,4 +233,57 @@ APP_TEST(puntos_se_recuperan_de_la_sd)
     for (auto &x : app->waypoints())
         found |= x.name == "Toma <A&B>" && x.note == "Muestra 3";
     CHECK(found);
+}
+
+APP_TEST(mensajes_pestanas_y_respuestas)
+{
+    app->open_chat("geo2");
+    app->show(ScreenId::Messages);
+    th::tick(30);
+    lv_group_t *g = app->messages_screen.group;
+    // tocar una respuesta rápida la envía al chat abierto
+    lv_obj_t *chip = find_text(g, "OK, recibido");
+    CHECK(chip != nullptr);
+    if (!chip)
+        return;
+    size_t n = app->messages("geo2").size();
+    lv_obj_send_event(chip, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK_EQ(app->messages("geo2").size(), n + 1);
+    CHECK_EQ(app->messages("geo2").back().text, std::string("OK, recibido"));
+    // mantenerla abre el editor en esa respuesta, y el clic al soltar no envía
+    lv_obj_send_event(chip, LV_EVENT_LONG_PRESSED, nullptr);
+    lv_obj_send_event(chip, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(app->current() == ScreenId::QuickReplies);
+    CHECK_EQ(app->messages("geo2").size(), n + 1);
+    lv_obj_t *ta = th::focused();
+    CHECK(ta && lv_obj_check_type(ta, &lv_textarea_class) &&
+          std::string(lv_textarea_get_text(ta)) == "OK, recibido");
+    th::key(LV_KEY_ESC);
+    CHECK(app->current() == ScreenId::Messages);
+    // el lápiz abre el editor
+    lv_obj_t *pencil = nullptr;
+    for (uint32_t i = 0; i < lv_group_get_obj_count(g); i++) {
+        lv_obj_t *o = lv_group_get_obj_by_index(g, i);
+        if (o == chip && i > 0)
+            pencil = lv_group_get_obj_by_index(g, i - 1); // va justo antes de las respuestas
+    }
+    CHECK(pencil != nullptr);
+    if (pencil)
+        lv_obj_send_event(pencil, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(app->current() == ScreenId::QuickReplies);
+    th::key(LV_KEY_ESC);
+    // ← → sobre las pestañas cambian de chat
+    lv_obj_t *tab = find_text(g, "GEO2");
+    CHECK(tab != nullptr);
+    if (!tab)
+        return;
+    lv_group_focus_obj(tab);
+    std::string first = app->messages_screen.current;
+    th::key(LV_KEY_RIGHT);
+    CHECK(app->messages_screen.current != first);
+    th::key(LV_KEY_LEFT);
+    CHECK_EQ(app->messages_screen.current, first);
 }

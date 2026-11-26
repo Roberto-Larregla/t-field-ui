@@ -20,7 +20,7 @@ La interfaz está en **español e inglés**, con tema **claro, oscuro o automát
 ## Qué hace
 
 - **Inicio:** fichas de color que son también los accesos (1 Mensajes, 2 Equipo, 3 Mapa, 4 Ajustes, SOS). Hora, barra de luz del día de la salida a la puesta del sol, batería y GPS propios; distancia, rumbo, diferencia de altura, batería y señal de cada compañero; últimos chats y respuestas rápidas; la ficha Mapa avisa cuando se está grabando una ruta.
-- **Mensajes:** chats y canales, respuestas rápidas editables, contador de bytes (el límite de Meshtastic) y puntos compartidos que se abren en el mapa. Borrar un chat (dos pulsaciones), todos, o los mensajes de más de 1, 7 o 30 días.
+- **Mensajes:** cada chat o canal en una pestaña (se cambia con ← →), conversación a todo el ancho con la distancia de quien escribe, respuestas rápidas a un toque (el lápiz las edita; mantener una abre el editor en esa), contador de bytes (el límite de Meshtastic) y puntos compartidos que se abren en el mapa. Borrar un chat (dos pulsaciones), todos, o los mensajes de más de 1, 7 o 30 días.
 - **Mapa:** mapa base desde la tarjeta SD o cuadrícula UTM; puntos (P1, P2…), rutas grabadas en GPX (R1, R2…), regla, destino y rastro de cada compañero.
 - **Equipo:** «Mi equipo» y toda la red; ficha de cada nodo, pedir posiciones a todos y ruta de señal.
 - **SOS:** por el canal y directo a cada miembro, mostrando quién lo recibió.

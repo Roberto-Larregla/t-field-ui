@@ -88,6 +88,10 @@ class MessagesScreen {
     std::string draft() const;                 // lo escrito sin enviar (sobrevive a rehacer la pantalla)
     void set_draft(const std::string &text);
     lv_obj_t *conversation() const { return conv_; }
+    void step_chat(int dir);  // ← → sobre las pestañas: chat anterior o siguiente
+    void refresh_meta();      // "directo · a 640 m NE · ahora" (cambia con la telemetría)
+    void refresh_chips();     // respuestas rápidas (cambian al editarlas o al elegir chat)
+    bool on_tab() const;      // el foco está en una pestaña de chat
     lv_obj_t *screen = nullptr;
     lv_group_t *group = nullptr;
     std::string current;
@@ -104,7 +108,10 @@ class MessagesScreen {
     static void on_text(lv_event_t *e);
 
     App *app_ = nullptr;
-    lv_obj_t *time_, *pct_, *list_, *conv_title_, *conv_meta_, *conv_ = nullptr, *input_, *counter_, *send_, *qr_;
+    lv_obj_t *time_, *pct_, *list_, *conv_meta_, *conv_ = nullptr, *input_, *counter_, *send_, *qr_;
+    lv_obj_t *chips_[4]{}, *chip_labels_[4]{};
+    bool long_pressed_ = false;
+    static void on_chip(lv_event_t *e);
     std::vector<Row> rows_;
     std::vector<Chat> chats_;
     void add_bubble(const Message &m);
@@ -113,7 +120,6 @@ class MessagesScreen {
     std::vector<std::pair<lv_obj_t *, lv_obj_t *>> bubble_btns_; // (burbuja, botón dentro)
     lv_obj_t *esc_ = nullptr, *more_btn_ = nullptr, *del_btn_ = nullptr, *del_lbl_ = nullptr;
     bool del_armed_ = false;
-    std::string fitted_title_; // nombre para el que se ajustó la cabecera
     uint32_t del_armed_at_ = 0;
     void disarm_delete();
     std::string shown_chat_; // lo dibujado, para no rehacerlo si no cambió
@@ -128,6 +134,7 @@ class QuickScreen {
     void load(const QuickReplies &q);
     // Esc con cambios sin guardar: la primera vez avisa (true), la segunda deja salir
     bool handle_esc();
+    void focus_field(int i); // foco en la respuesta i (al mantenerla en Mensajes)
     lv_obj_t *screen = nullptr;
     lv_group_t *group = nullptr;
 
@@ -335,6 +342,8 @@ class App {
     void show_settings_section(int section);
     bool is_team_chat(const Chat &ch) const;
     bool chat_outside_team(const Chat &ch) const; // sus mensajes nuevos se marcan en gris
+    const TeamNode *chat_node(const Chat &ch) const; // el nodo de un chat directo (o nullptr)
+    void edit_quick(int i); // abre el editor de respuestas rápidas (i: en esa; -1: la primera)
     // Canal privado del equipo
     void create_channel();
     void rename_channel(const std::string &name);
