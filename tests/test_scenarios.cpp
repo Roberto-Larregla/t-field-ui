@@ -36,6 +36,48 @@ static const TeamNode *node(uint32_t num)
 static lv_obj_t *last_in_group(lv_group_t *g) { return lv_group_get_obj_by_index(g, lv_group_get_obj_count(g) - 1); }
 
 // ------------------------------------------------------------ navegación
+APP_TEST(mapa_regla_varios_tramos)
+{
+    app->show(ScreenId::Map);
+    MapScreen &m = app->map_screen;
+    lv_obj_t *btn = m.ruler_button_obj();
+    lv_obj_send_event(btn, LV_EVENT_CLICKED, nullptr); // activa: sin puntos
+    th::tick(30);
+    CHECK(m.ruler_on());
+    CHECK_EQ((int)m.ruler_points(), 0);
+    CHECK(th::visible_text("Regla: pon la cruz en el inicio"));
+    lv_obj_send_event(btn, LV_EVENT_CLICKED, nullptr); // marca en la cruz
+    th::tick(30);
+    CHECK_EQ((int)m.ruler_points(), 1);
+    lv_obj_send_event(btn, LV_EVENT_CLICKED, nullptr); // en el mismo lugar: no repite
+    th::tick(30);
+    CHECK_EQ((int)m.ruler_points(), 1);
+    CHECK(th::visible_text("Mueve el mapa para marcar"));
+    th::key(LV_KEY_RIGHT); // con la regla, las flechas mueven el mapa
+    double live = m.ruler_distance_m();
+    CHECK(live > 1);
+    CHECK(th::visible_text("tramo"));
+    lv_obj_send_event(btn, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK_EQ((int)m.ruler_points(), 2);
+    CHECK_NEAR(m.ruler_distance_m(), live, 0.5);
+    th::key(LV_KEY_DOWN);
+    th::key(LV_KEY_ENTER); // Enter marca igual que el botón
+    CHECK_EQ((int)m.ruler_points(), 3);
+    CHECK(m.ruler_distance_m() > live + 1);
+    // Esc quita el último punto; sin puntos, sale; después sube al inicio
+    for (int k = 3; k > 0; k--) {
+        th::key(LV_KEY_ESC);
+        CHECK_EQ((int)m.ruler_points(), k - 1);
+    }
+    CHECK(m.ruler_on());
+    th::key(LV_KEY_ESC);
+    CHECK(!m.ruler_on());
+    CHECK(app->current() == ScreenId::Map);
+    th::key(LV_KEY_ESC);
+    CHECK(app->current() == ScreenId::Home);
+}
+
 APP_TEST(navegacion_esc)
 {
     // Esc sube un nivel, venga uno de donde venga: el chat abierto desde una ficha sube al inicio

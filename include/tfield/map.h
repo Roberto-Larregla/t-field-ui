@@ -50,6 +50,10 @@ class MapScreen {
     void show_route(uint32_t id); // muestra una ruta guardada y la encuadra
     void center(double &lat, double &lon) const { lat = clat_, lon = clon_; }
     bool pan_mode() const { return pan_mode_ || ruler_; } // las flechas mueven el mapa
+    lv_obj_t *ruler_button_obj() const { return btn_ruler_; }
+    bool ruler_on() const { return ruler_; }
+    size_t ruler_points() const { return rpts_.size(); }
+    double ruler_distance_m() const { return ruler_total_m(); }
     uint8_t zoom() const { return zoom_; }
     void set_pan_mode(bool on);
     bool dialog_open() const { return dlg_kind_ != DLG_NONE || share_open_; }
@@ -146,8 +150,13 @@ class MapScreen {
     bool to_screen(double lat, double lon, int32_t &sx, int32_t &sy) const;
     void line_points(Proj &c, const std::vector<TrackPoint> &pts, std::vector<lv_point_precise_t> &out);
     // regla
-    void ruler_toggle();
-    void ruler_tap(int32_t sx, int32_t sy);
+    // Regla de varios tramos: el botón la activa y después marca un punto en la cruz del centro
+    void ruler_button();
+    void ruler_mark();
+    void ruler_undo(); // Esc: quita el último punto; sin puntos, sale
+    void ruler_off();
+    void place_ruler();
+    double ruler_total_m() const; // tramos marcados + el que va hasta la cruz
     // diálogo de nombre y nota
     void build_dialog();
     void open_dialog(DlgKind kind, uint32_t id = 0);
@@ -197,7 +206,7 @@ class MapScreen {
     // teselas, líneas y marcadores
     int64_t l22_ = 0, t22_ = 0;
     int shift_ = 7;
-    std::vector<lv_point_precise_t> ruler_vec_;
+    std::vector<lv_point_precise_t> ruler_vec_, ruler_live_vec_;
     std::string team_sig_; // lo dibujado del equipo: si no cambia, no se redibuja
     lv_obj_t *me_halo_ = nullptr, *me_dot_ = nullptr, *cross_ = nullptr;
     std::vector<NodeMarker> team_marks_;
@@ -224,10 +233,13 @@ class MapScreen {
     int panel_kind_ = PANEL_NONE;
 
     // regla: 0 apagada, 1 espera A, 2 espera B, 3 midiendo
-    int ruler_ = 0;
-    double ra_lat_ = 0, ra_lon_ = 0, rb_lat_ = 0, rb_lon_ = 0;
-    lv_obj_t *ruler_line_ = nullptr, *ruler_a_ = nullptr, *ruler_b_ = nullptr, *ruler_lbl_ = nullptr;
-    lv_point_precise_t ruler_pts_[2]{};
+    struct RulerPt {
+        double lat, lon;
+    };
+    bool ruler_ = false;
+    std::vector<RulerPt> rpts_; // puntos marcados (máx. RULER_MAX)
+    lv_obj_t *ruler_layer_ = nullptr, *ruler_line_ = nullptr, *ruler_live_ = nullptr, *ruler_lbl_ = nullptr;
+    std::vector<lv_obj_t *> ruler_dots_;
     int32_t drag_ = 0; // px arrastrados desde que se presionó
 
     // diálogo

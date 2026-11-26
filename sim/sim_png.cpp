@@ -171,6 +171,24 @@ int main(int argc, char **argv)
     render(out + "/equipo_ficha.raw");
     app.show_node_on_map(2);
     render(out + "/mapa_rastro.raw");
+    app.show_node_on_map(3); // la camioneta: venía por el camino
+    render(out + "/mapa_rastro_veh1.raw");
+    { // regla de tres tramos, con el cuarto hasta la cruz
+        app.show(tfield::ScreenId::Home);
+        app.show(tfield::ScreenId::Map);
+        lv_obj_t *rb = app.map_screen.ruler_button_obj();
+        click(rb);
+        render(out + "/mapa_regla_inicio.raw");
+        int32_t moves[4][2] = {{0, 0}, {-70, 30}, {-40, -45}, {-60, 20}};
+        for (auto &mv : moves) {
+            app.map_screen.pan(mv[0], mv[1]);
+            click(rb);
+        }
+        app.map_screen.pan(-30, -35);
+        render(out + "/mapa_regla.raw");
+        for (int i = 0; i < 6; i++)
+            app.handle_key(LV_KEY_ESC); // quita los puntos y sale
+    }
     app.show(tfield::ScreenId::Home);
     app.trigger_sos();
     render(out + "/sos.raw");

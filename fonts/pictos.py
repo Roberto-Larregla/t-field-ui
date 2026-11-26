@@ -24,6 +24,7 @@ PICTOS = [
     ("tfield_picto_settings", "settings", 16, 2.3),
     ("tfield_picto_pencil", "pencil", 14, 2.4),
     ("tfield_picto_layers", "stack-2", 17, 2.2),
+    ("tfield_picto_ruler", "ruler-2", 18, 2.2),
     ("tfield_picto_eye", "eye", 14, 2.3),
     ("tfield_picto_tag", "tag", 14, 2.3),
     # Equipo: rumbo (se gira) y botones de la ficha

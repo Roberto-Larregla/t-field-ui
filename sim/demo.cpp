@@ -158,11 +158,17 @@ static void demo_trails(App &app)
         p.epoch = now_epoch(13, 30) + (uint32_t)(i * 120);
         app.add_trail_point(2, p);
     }
-    for (int i = 0; i <= 20; i++) {
-        double e = -2600 + 1504 * i / 20.0;
-        double n = 0.75 * e + 180.0 * std::sin(e / 700.0) - 75.0;
-        if (i == 20)
-            n = 96;
+    auto road = [](double e) { return 0.75 * e + 180.0 * std::sin(e / 700.0) - 75.0; };
+    for (int i = 0; i <= 26; i++) { // por el camino y después, por una huella, al portón norte
+        double e, n;
+        if (i <= 14) {
+            e = -2600 + 1200 * i / 14.0;
+            n = road(e);
+        } else {
+            double t = (i - 14) / 12.0, e0 = -1400, n0 = road(-1400);
+            e = e0 + (-1096 - e0) * t + 40 * std::sin(t * 9.42477796); // 3π: termina justo en el portón
+            n = n0 + (96 - n0) * t;
+        }
         TrackPoint p;
         local_to_latlon(e, n, p.lat, p.lon);
         p.alt = (float)elevation(e, n);

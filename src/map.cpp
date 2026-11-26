@@ -12,6 +12,7 @@
 
 // pictogramas (fonts/tfield_pictos.c, C): fuera del namespace
 LV_IMAGE_DECLARE(tfield_picto_layers);
+LV_IMAGE_DECLARE(tfield_picto_ruler);
 LV_IMAGE_DECLARE(tfield_picto_eye);
 LV_IMAGE_DECLARE(tfield_picto_tag);
 
@@ -23,6 +24,7 @@ static constexpr int32_t HEAD_H = 28;
 static constexpr int32_t MAP_Y = HEAD_H;
 static constexpr int32_t MAP_W = SCREEN_W;
 static constexpr int32_t MAP_H = 182;
+static constexpr size_t RULER_MAX = 30; // puntos de la regla
 static constexpr int32_t TOOL_Y = MAP_Y + MAP_H;
 static constexpr int32_t CTRL_X = MAP_W - 30; // columna de botones a la derecha
 static constexpr uint32_t WP_COLOR = 0xA12C6B;    // puntos
@@ -154,19 +156,25 @@ void MapScreen::create(App *app)
     lv_style_set_line_rounded(&track_poly_.style, true);
 
 
-    // Regla
-    ruler_line_ = lv_line_create(view);
+    // Regla: una capa con los tramos marcados, el tramo hasta la cruz (punteado), los puntos y
+    // el total junto a la cruz. No recibe toques: pasan al mapa.
+    ruler_layer_ = lv_obj_create(view);
+    lv_obj_remove_style_all(ruler_layer_);
+    lv_obj_set_size(ruler_layer_, MAP_W, MAP_H);
+    lv_obj_remove_flag(ruler_layer_, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE));
+    ruler_line_ = lv_line_create(ruler_layer_);
     lv_obj_set_style_line_color(ruler_line_, c(col::INK), 0);
     lv_obj_set_style_line_width(ruler_line_, 2, 0);
     show(ruler_line_, false);
-    for (lv_obj_t **p : {&ruler_a_, &ruler_b_}) {
-        *p = box(view, 0, 0, 10, 10, col::SURF);
-        lv_obj_set_style_radius(*p, LV_RADIUS_CIRCLE, 0);
-        border(*p, col::INK, 2);
-        show(*p, false);
-    }
-    ruler_lbl_ = pill(view, &tfield_font_12b, col::SURF, col::INK, LV_OPA_COVER);
+    ruler_live_ = lv_line_create(ruler_layer_);
+    lv_obj_set_style_line_color(ruler_live_, c(col::BLUE), 0); // el tramo que falta marcar
+    lv_obj_set_style_line_width(ruler_live_, 2, 0);
+    lv_obj_set_style_line_dash_width(ruler_live_, 5, 0);
+    lv_obj_set_style_line_dash_gap(ruler_live_, 4, 0);
+    show(ruler_live_, false);
+    ruler_lbl_ = pill(ruler_layer_, &tfield_font_12b, col::SURF, col::INK, LV_OPA_COVER);
     show(ruler_lbl_, false);
+    show(ruler_layer_, false);
 
     // Posición propia: halo de precisión + punto
     me_halo_ = box(view, 0, 0, 20, 20, col::BLUE);
@@ -178,7 +186,19 @@ void MapScreen::create(App *app)
     lv_obj_set_style_radius(me_dot_, LV_RADIUS_CIRCLE, 0);
     border(me_dot_, col::SURF, 2);
 
-    cross_ = label(view, &tfield_font_14b, col::INK, "+");
+    // Cruz del centro (mover el mapa, regla): dos barras con borde claro, se ven sobre cualquier fondo
+    cross_ = lv_obj_create(view);
+    lv_obj_remove_style_all(cross_);
+    lv_obj_set_size(cross_, 21, 21);
+    lv_obj_remove_flag(cross_, (lv_obj_flag_t)(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+    for (int v = 0; v < 2; v++) {
+        lv_obj_t *bar = box(cross_, v ? 9 : 0, v ? 0 : 9, v ? 3 : 21, v ? 21 : 3, col::INK);
+        lv_obj_set_style_outline_width(bar, 1, 0);
+        lv_obj_set_style_outline_color(bar, c(col::SURF), 0);
+        lv_obj_set_style_outline_opa(bar, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(bar, LV_OBJ_FLAG_CLICKABLE);
+    }
+    lv_obj_move_foreground(lv_obj_get_child(cross_, 0)); // la barra horizontal sobre el borde de la vertical
     show(cross_, false);
 
     // Coordenadas, norte, escala, atribución
@@ -244,17 +264,14 @@ void MapScreen::create(App *app)
         LV_EVENT_CLICKED, this);
 
     btn_ruler_ = map_button(view, 121, group);
-    static lv_point_precise_t ruler_icon[] = {{5, 18}, {18, 5}};
-    lv_obj_t *rl = lv_line_create(btn_ruler_);
-    lv_line_set_points(rl, ruler_icon, 2);
-    lv_obj_set_style_line_width(rl, 2, 0);
-    lv_obj_set_style_line_color(rl, c(col::INK), 0);
-    for (auto &pt : ruler_icon) {
-        lv_obj_t *d = box(btn_ruler_, (int32_t)pt.x - 2, (int32_t)pt.y - 2, 5, 5, col::INK);
-        lv_obj_set_style_radius(d, LV_RADIUS_CIRCLE, 0);
-    }
+    lv_obj_t *rl = lv_image_create(btn_ruler_);
+    lv_image_set_src(rl, &tfield_picto_ruler);
+    lv_obj_set_style_image_recolor_opa(rl, LV_OPA_COVER, 0);
+    lv_obj_set_style_image_recolor(rl, c(col::INK), 0);
+    lv_obj_remove_flag(rl, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_center(rl);
     lv_obj_add_event_cb(
-        btn_ruler_, [](lv_event_t *e) { static_cast<MapScreen *>(lv_event_get_user_data(e))->ruler_toggle(); },
+        btn_ruler_, [](lv_event_t *e) { static_cast<MapScreen *>(lv_event_get_user_data(e))->ruler_button(); },
         LV_EVENT_CLICKED, this);
 
     // Capas: qué se ve y qué lleva nombre (por capa y, dentro de una, uno por uno)
@@ -307,9 +324,7 @@ void MapScreen::create(App *app)
     lv_obj_center(label(nx, &tfield_font_12b, col::SURF, "\xC3\x97"));
     lv_obj_add_event_cb(
         nx, [](lv_event_t *e) {
-            auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
-            if (s->ruler_)
-                s->ruler_toggle();
+            static_cast<MapScreen *>(lv_event_get_user_data(e))->ruler_off();
         },
         LV_EVENT_CLICKED, this);
     show(strip_, false);
@@ -1059,33 +1074,7 @@ void MapScreen::redraw()
     place_markers();
     update_names_button(); // los ajustes pudieron cambiar en otra pantalla
 
-    // --- Regla
-    if (ruler_ >= 2) {
-        int32_t ax, ay;
-        to_screen(ra_lat_, ra_lon_, ax, ay);
-        lv_obj_set_pos(ruler_a_, ax - 5, ay - 5);
-        show(ruler_a_, true);
-    } else
-        show(ruler_a_, false);
-    if (ruler_ == 3) {
-        int32_t ax, ay, bx, by;
-        to_screen(ra_lat_, ra_lon_, ax, ay);
-        to_screen(rb_lat_, rb_lon_, bx, by);
-        lv_obj_set_pos(ruler_b_, bx - 5, by - 5);
-        show(ruler_b_, true);
-        std::vector<lv_point_precise_t> seg;
-        clip_polyline({{ax, ay}, {bx, by}}, seg);
-        set_line(ruler_line_, ruler_vec_, seg);
-        int32_t d = (int32_t)haversine_m(ra_lat_, ra_lon_, rb_lat_, rb_lon_);
-        set_text(ruler_lbl_, format_distance(d));
-        lv_obj_update_layout(ruler_lbl_);
-        lv_obj_set_pos(ruler_lbl_, (ax + bx) / 2 - lv_obj_get_width(ruler_lbl_) / 2, (ay + by) / 2 - 18);
-        show(ruler_lbl_, true);
-    } else {
-        show(ruler_b_, false);
-        show(ruler_line_, false);
-        show(ruler_lbl_, false);
-    }
+    place_ruler();
 
     // --- Escala
     static const int nice[] = {10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000};
@@ -1115,7 +1104,7 @@ void MapScreen::redraw()
 
     // encima de los marcadores (que se crean a medida que hacen falta); cambiar el orden
     // redibuja todo el mapa, así que solo si no está ya así
-    keep_on_top({me_halo_, me_dot_, ruler_line_, ruler_a_, ruler_b_, ruler_lbl_, cross_, coords_, north_, strip_, toast_});
+    keep_on_top({me_halo_, me_dot_, ruler_layer_, cross_, coords_, north_, strip_, toast_});
     team_sig_ = team_signature();
 }
 
@@ -1523,23 +1512,35 @@ void MapScreen::open_selection()
 // ------------------------------------------------------------------ regla
 void MapScreen::update_strip()
 {
-    char buf[128];
-    if (ruler_) {
-        set_bg(strip_, col::INK);
-        if (ruler_ == 1)
-            set_text(strip_lbl_, tr("Regla: toca el primer punto (o Enter en la cruz)"));
-        else if (ruler_ == 2)
-            set_text(strip_lbl_, tr("Regla: toca el segundo punto"));
-        else {
-            int32_t d = (int32_t)haversine_m(ra_lat_, ra_lon_, rb_lat_, rb_lon_);
-            int b = (int)bearing_deg(ra_lat_, ra_lon_, rb_lat_, rb_lon_);
-            snprintf(buf, sizeof(buf), tr("Regla: %s \xC2\xB7 rumbo %s %d\xC2\xB0"), format_distance(d).c_str(), cardinal(b), b);
-            set_text(strip_lbl_, buf);
-        }
-        show(strip_, true);
+    if (!ruler_) {
+        show(strip_, false);
         return;
     }
-    show(strip_, false);
+    set_bg(strip_, col::INK);
+    char buf[128];
+    if (rpts_.empty())
+        set_text(strip_lbl_, tr("Regla: pon la cruz en el inicio y toca la regla"));
+    else {
+        // tramo: el que va hasta la cruz; recién marcado (la cruz sobre el punto), el último
+        const RulerPt &last = rpts_.back();
+        double live = haversine_m(last.lat, last.lon, clat_, clon_);
+        const RulerPt *a = &last;
+        double blat = clat_, blon = clon_, seg = live;
+        if (live < 1 && rpts_.size() >= 2) {
+            a = &rpts_[rpts_.size() - 2];
+            blat = last.lat, blon = last.lon;
+            seg = haversine_m(a->lat, a->lon, blat, blon);
+        }
+        if (seg < 1)
+            snprintf(buf, sizeof(buf), "%s", tr("Regla: mueve el mapa y marca el siguiente punto"));
+        else {
+            int b = (int)bearing_deg(a->lat, a->lon, blat, blon);
+            snprintf(buf, sizeof(buf), tr("Regla: %s \xC2\xB7 tramo %s %s %d\xC2\xB0"), format_distance((int32_t)ruler_total_m()).c_str(),
+                     format_distance((int32_t)seg).c_str(), cardinal(b), b);
+        }
+        set_text(strip_lbl_, buf);
+    }
+    show(strip_, true);
 }
 
 void MapScreen::update_toolbar()
@@ -1578,29 +1579,108 @@ void MapScreen::update_toolbar()
 }
 
 // ------------------------------------------------------------- regla
-void MapScreen::ruler_toggle()
+double MapScreen::ruler_total_m() const
 {
-    ruler_ = ruler_ ? 0 : 1;
-    set_bg(btn_ruler_, ruler_ ? col::BG : col::SURF);
-    lv_obj_set_style_border_width(btn_ruler_, ruler_ ? 2 : 1, 0);
-    if (ruler_)
-        lv_group_focus_obj(view);
+    double d = 0;
+    for (size_t i = 1; i < rpts_.size(); i++)
+        d += haversine_m(rpts_[i - 1].lat, rpts_[i - 1].lon, rpts_[i].lat, rpts_[i].lon);
+    if (!rpts_.empty())
+        d += haversine_m(rpts_.back().lat, rpts_.back().lon, clat_, clon_);
+    return d;
+}
+
+void MapScreen::ruler_button()
+{
+    if (!ruler_) {
+        ruler_ = true;
+        rpts_.clear();
+        set_bg(btn_ruler_, col::BG);
+        lv_obj_set_style_border_width(btn_ruler_, 2, 0);
+        lv_group_focus_obj(view); // las flechas mueven el mapa y Enter marca, como el botón
+        redraw();
+        return;
+    }
+    ruler_mark();
+}
+
+void MapScreen::ruler_mark()
+{
+    if (!rpts_.empty() && haversine_m(rpts_.back().lat, rpts_.back().lon, clat_, clon_) < 1) {
+        toast(tr("Mueve el mapa para marcar el siguiente punto"));
+        return;
+    }
+    if (rpts_.size() >= RULER_MAX) {
+        toast(tr("La regla lleva 30 puntos: Esc quita el \xC3\xBAltimo"));
+        return;
+    }
+    rpts_.push_back({clat_, clon_});
     redraw();
 }
 
-void MapScreen::ruler_tap(int32_t sx, int32_t sy)
+void MapScreen::ruler_undo()
 {
-    double cx, cy, lat, lon;
-    mercator_px(clat_, clon_, zoom_, cx, cy);
-    mercator_latlon(cx - MAP_W / 2.0 + sx, cy - MAP_H / 2.0 + sy, zoom_, lat, lon);
-    if (ruler_ == 1 || ruler_ == 3) {
-        ra_lat_ = lat, ra_lon_ = lon;
-        ruler_ = 2;
-    } else if (ruler_ == 2) {
-        rb_lat_ = lat, rb_lon_ = lon;
-        ruler_ = 3;
+    if (rpts_.empty()) {
+        ruler_off();
+        return;
     }
+    rpts_.pop_back();
     redraw();
+}
+
+void MapScreen::ruler_off()
+{
+    if (!ruler_)
+        return;
+    ruler_ = false;
+    rpts_.clear();
+    set_bg(btn_ruler_, col::SURF);
+    lv_obj_set_style_border_width(btn_ruler_, 1, 0);
+    redraw();
+}
+
+// Los tramos marcados, el punteado hasta la cruz, un punto por marca y el total junto a la cruz
+void MapScreen::place_ruler()
+{
+    show(ruler_layer_, ruler_);
+    if (!ruler_)
+        return;
+    std::vector<lv_point_t> pts;
+    std::vector<lv_point_precise_t> seg;
+    for (auto &p : rpts_) {
+        int32_t x, y;
+        to_screen(p.lat, p.lon, x, y);
+        pts.push_back({x, y});
+    }
+    clip_polyline(pts, seg);
+    set_line(ruler_line_, ruler_vec_, seg);
+    const int32_t cx = MAP_W / 2, cy = MAP_H / 2;
+    if (!pts.empty()) {
+        std::vector<lv_point_precise_t> live;
+        clip_polyline({pts.back(), {cx, cy}}, live);
+        set_line(ruler_live_, ruler_live_vec_, live);
+    } else
+        show(ruler_live_, false);
+    while (ruler_dots_.size() < pts.size()) {
+        lv_obj_t *d = box(ruler_layer_, 0, 0, 10, 10, col::SURF);
+        lv_obj_set_style_radius(d, LV_RADIUS_CIRCLE, 0);
+        border(d, col::INK, 2);
+        lv_obj_remove_flag(d, LV_OBJ_FLAG_CLICKABLE);
+        ruler_dots_.push_back(d);
+    }
+    for (size_t i = 0; i < ruler_dots_.size(); i++) {
+        bool on = i < pts.size() && pts[i].x > -10 && pts[i].x < MAP_W + 10 && pts[i].y > -10 && pts[i].y < MAP_H + 10;
+        if (on)
+            lv_obj_set_pos(ruler_dots_[i], pts[i].x - 5, pts[i].y - 5);
+        show(ruler_dots_[i], on);
+    }
+    if (!pts.empty()) {
+        set_text(ruler_lbl_, format_distance((int32_t)ruler_total_m()));
+        lv_obj_update_layout(ruler_lbl_);
+        lv_obj_set_pos(ruler_lbl_, std::min<int32_t>(cx + 10, MAP_W - 40 - lv_obj_get_width(ruler_lbl_)), cy - 26);
+        show(ruler_lbl_, true);
+    } else
+        show(ruler_lbl_, false);
+    lv_obj_move_foreground(ruler_lbl_);
 }
 
 // ------------------------------------------------------------- paneles
@@ -2051,10 +2131,8 @@ void MapScreen::on_view(lv_event_t *e)
         lv_area_t a;
         lv_obj_get_coords(s->view, &a);
         int32_t x = p.x - a.x1, y = p.y - a.y1;
-        if (s->ruler_) {
-            s->ruler_tap(x, y);
-            return;
-        }
+        if (s->ruler_)
+            return; // con la regla, se marca en la cruz (botón o Enter)
         // tocar un marcador lo elige (el más cercano, a menos de 14 px); tocar fuera, nada
         const Hit *best = nullptr;
         int32_t bd = 14 * 14 + 1;
@@ -2096,7 +2174,7 @@ void MapScreen::on_key(lv_event_t *e)
         break;
     case LV_KEY_ENTER:
         if (s->ruler_)
-            s->ruler_tap(MAP_W / 2, MAP_H / 2); // marca en la cruz del centro
+            s->ruler_mark(); // marca en la cruz del centro
         else if (s->sel_kind_ != SEL_NONE && !s->pan_mode_)
             s->open_selection(); // con algo elegido: su ficha
         else
@@ -2641,7 +2719,7 @@ bool MapScreen::handle_esc()
         return true;
     }
     if (ruler_) {
-        ruler_toggle();
+        ruler_undo();
         return true;
     }
     if (pan_mode_) {
