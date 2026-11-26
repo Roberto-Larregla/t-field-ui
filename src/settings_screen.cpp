@@ -37,46 +37,46 @@ static constexpr int32_t MODE_W = 156, MODE_H = 62;
 static constexpr int32_t TILE_W = 77, TILE_H = 25;
 static constexpr uint32_t SLATE_DK = 0x2A353D;
 
-// Modos: lo que cambia cada uno (-1: no lo toca). Si algo se cambia a mano, ninguno calza
-// y el modo queda "personalizado" (no se guarda aparte: se deduce de los ajustes).
+// Modos: nombre, pictograma y color. Sus valores están en Settings::modes (se cambian
+// manteniendo apretado el modo). Si algo se cambia a mano, ninguno calza y el modo queda
+// "personalizado" (no se guarda aparte: se deduce de los ajustes).
 struct Mode {
-    const char *name, *l1, *l2;
+    const char *name;
     const lv_image_dsc_t *icon;
     uint32_t color;
-    int16_t brightness, screen_off_s;
-    int8_t kbd_light, theme, pos_smart;
-    int16_t pos_every_s, track_every_s;
 };
-static const Mode MODES[4] = {
-    {"Terreno", "brillo 80 % \xC2\xB7 pantalla 1 min", "posici\xC3\xB3n cada 2 min", &tfield_picto_walk,
-     col::GREEN, 80, 60, 1, 0, 1, 120, 10},
-    {"Ahorro", "brillo 40 % \xC2\xB7 pantalla 30 s", "posici\xC3\xB3n cada 15 min", &tfield_picto_battery,
-     col::AMBER, 40, 30, 0, -1, 1, 900, 30},
-    {"Noche", "tema oscuro \xC2\xB7 brillo 20 %", "posici\xC3\xB3n cada 5 min", &tfield_picto_moon,
-     col::PURPLE, 20, 30, 0, 1, -1, 300, 10},
-    {"Campamento", "brillo 60 % \xC2\xB7 pantalla 5 min", "posici\xC3\xB3n cada 30 min", &tfield_picto_tent,
-     col::BLUE, 60, 300, 1, -1, 0, 1800, 60},
+static const Mode MODES[MODE_COUNT] = {
+    {"Terreno", &tfield_picto_walk, col::GREEN},
+    {"Ahorro", &tfield_picto_battery, col::AMBER},
+    {"Noche", &tfield_picto_moon, col::PURPLE},
+    {"Campamento", &tfield_picto_tent, col::BLUE},
 };
 
-static bool mode_matches(const Mode &m, const Settings &s)
+static bool mode_matches(const ModeValues &m, const Settings &s)
 {
-    return s.brightness == m.brightness && s.screen_off_s == m.screen_off_s && (m.kbd_light < 0 || s.kbd_light == (m.kbd_light == 1)) &&
-           (m.theme < 0 || s.theme == m.theme) && (m.pos_smart < 0 || s.pos_smart == (m.pos_smart == 1)) &&
-           s.pos_every_s == m.pos_every_s && s.track_every_s == m.track_every_s;
+    return s.brightness == m.brightness && s.screen_off_s == m.screen_off_s && s.kbd_light == m.kbd_light &&
+           (m.theme < 0 || s.theme == m.theme) && s.pos_smart == m.pos_smart && s.pos_every_s == m.pos_every_s &&
+           s.track_every_s == m.track_every_s;
 }
 
-static void mode_apply(const Mode &m, Settings &s)
+static void mode_apply(const ModeValues &m, Settings &s)
 {
-    s.brightness = (uint8_t)m.brightness;
-    s.screen_off_s = (uint16_t)m.screen_off_s;
-    if (m.kbd_light >= 0)
-        s.kbd_light = m.kbd_light == 1;
+    s.brightness = m.brightness;
+    s.screen_off_s = m.screen_off_s;
+    s.kbd_light = m.kbd_light;
     if (m.theme >= 0)
         s.theme = (uint8_t)m.theme;
-    if (m.pos_smart >= 0)
-        s.pos_smart = m.pos_smart == 1;
-    s.pos_every_s = (uint16_t)m.pos_every_s;
-    s.track_every_s = (uint8_t)m.track_every_s;
+    s.pos_smart = m.pos_smart;
+    s.pos_every_s = m.pos_every_s;
+    s.track_every_s = m.track_every_s;
+}
+
+static int mode_in_use(const Settings &s)
+{
+    for (int i = 0; i < MODE_COUNT; i++)
+        if (mode_matches(s.modes[i], s))
+            return i;
+    return -1;
 }
 
 static const lv_image_dsc_t *section_icon(int i)
@@ -142,6 +142,28 @@ static std::string secs_text(uint32_t s)
 
 static std::string pct(int v) { return std::to_string(v) + " %"; }
 
+// Las dos líneas de un modo en su tarjeta: lo que más lo distingue
+static std::string mode_line1(const ModeValues &m)
+{
+    char b[80];
+    if (m.theme == 1)
+        std::snprintf(b, sizeof(b), tr("tema oscuro \xC2\xB7 brillo %d %%"), m.brightness);
+    else if (m.theme == 2)
+        std::snprintf(b, sizeof(b), tr("tema auto \xC2\xB7 brillo %d %%"), m.brightness);
+    else if (m.screen_off_s == 0)
+        std::snprintf(b, sizeof(b), tr("brillo %d %% \xC2\xB7 sin apagar"), m.brightness);
+    else
+        std::snprintf(b, sizeof(b), tr("brillo %d %% \xC2\xB7 pantalla %s"), m.brightness, secs_text(m.screen_off_s).c_str());
+    return b;
+}
+
+static std::string mode_line2(const ModeValues &m)
+{
+    char b[80];
+    std::snprintf(b, sizeof(b), tr("posici\xC3\xB3n cada %s"), secs_text(m.pos_every_s).c_str());
+    return b;
+}
+
 static const char *policy_name(PointPolicy p)
 {
     switch (p) {
@@ -191,9 +213,13 @@ void SettingsScreen::create(App *app)
 
     // --- Inicio de ajustes: modos y Configuración
     grid_ = box(screen, 0, HEAD_H, SCREEN_W, BODY_H, col::BG);
-    lv_obj_set_pos(label(grid_, &tfield_font_12b, col::INK2, tr("Modo")), 6, 2);
+    lv_obj_t *mh = label(grid_, &tfield_font_12b, col::INK2, tr("Modo"));
+    lv_obj_set_pos(mh, 6, 2);
+    lv_obj_update_layout(mh);
+    lv_obj_set_pos(label(grid_, &tfield_font_12, col::INK2, tr("\xC2\xB7 mant\xC3\xA9n para configurar")),
+                   6 + lv_obj_get_width(mh) + 4, 2);
     mode_state_ = label(grid_, &tfield_font_12, col::INK2, "");
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < MODE_COUNT; i++) {
         const Mode &m = MODES[i];
         int32_t x = 3 + (i % 2) * (MODE_W + 2), y = 18 + (i / 2) * (MODE_H + 3);
         lv_obj_t *b = button(grid_, x, y, MODE_W, MODE_H, col::SURF, col::LINE, nullptr);
@@ -213,24 +239,46 @@ void SettingsScreen::create(App *app)
         lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
         lv_obj_center(dot);
         lv_obj_add_flag(dot, LV_OBJ_FLAG_EVENT_BUBBLE);
-        mode_l1_[i] = label(b, &tfield_font_12, col::INK2, tr(m.l1));
+        mode_l1_[i] = label(b, &tfield_font_12, col::INK2, "");
         lv_obj_set_pos(mode_l1_[i], 7, 27);
-        mode_l2_[i] = label(b, &tfield_font_12, col::INK2, tr(m.l2));
+        mode_l2_[i] = label(b, &tfield_font_12, col::INK2, "");
         lv_obj_set_pos(mode_l2_[i], 7, 42);
         for (lv_obj_t *l : {mode_l1_[i], mode_l2_[i]}) {
             lv_obj_set_size(l, MODE_W - 12, 14);
             lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_DOTS);
         }
         lv_obj_set_user_data(b, (void *)(intptr_t)i);
+        // tocar: usar el modo; mantener apretado: configurarlo
         lv_obj_add_event_cb(
             b, [](lv_event_t *e) {
                 auto *s = static_cast<SettingsScreen *>(lv_event_get_user_data(e));
                 int i = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t *)lv_event_get_current_target(e));
-                Settings st = s->app_->settings();
-                mode_apply(MODES[i], st);
-                s->apply(st); // el tema rehace la interfaz después, fuera del evento
+                switch (lv_event_get_code(e)) {
+                case LV_EVENT_PRESSED:
+                    s->mode_held_ = false;
+                    break;
+                case LV_EVENT_LONG_PRESSED:
+                    s->mode_held_ = true;
+                    // al soltar, nada: si no, la bola "tocaría" la primera fila de la página nueva
+                    if (lv_indev_active())
+                        lv_indev_wait_release(lv_indev_active());
+                    s->app_->show_settings_section(S_MODE0 + i); // Esc vuelve aquí
+                    break;
+                case LV_EVENT_CLICKED: {
+                    if (s->mode_held_) { // el CLICKED que sigue a mantener apretado
+                        s->mode_held_ = false;
+                        break;
+                    }
+                    Settings st = s->app_->settings();
+                    mode_apply(st.modes[i], st);
+                    s->apply(st); // el tema rehace la interfaz después, fuera del evento
+                    break;
+                }
+                default:
+                    break;
+                }
             },
-            LV_EVENT_CLICKED, this);
+            LV_EVENT_ALL, this);
         modes_[i] = b;
     }
     lv_obj_set_pos(label(grid_, &tfield_font_12b, col::INK2, tr("Configuraci\xC3\xB3n")), 6, 148);
@@ -492,7 +540,7 @@ void SettingsScreen::show_home()
 void SettingsScreen::show_section(int sec)
 {
     commit_texts();
-    if (sec < 0 || sec >= S_COUNT) {
+    if (sec < 0 || sec >= S_MODE0 + MODE_COUNT) {
         show_home();
         return;
     }
@@ -504,7 +552,12 @@ void SettingsScreen::show_section(int sec)
     section_ = sec;
     show(grid_, false);
     show(page_, true);
-    set_text(title_, std::string(tr("Ajustes \xE2\x80\xBA ")) + tr(SECTION_NAMES[sec]));
+    if (sec >= S_MODE0) {
+        char t[64];
+        std::snprintf(t, sizeof(t), tr("Modo %s"), tr(MODES[sec - S_MODE0].name));
+        set_text(title_, std::string(tr("Ajustes \xE2\x80\xBA ")) + t);
+    } else
+        set_text(title_, std::string(tr("Ajustes \xE2\x80\xBA ")) + tr(SECTION_NAMES[sec]));
     build_section(sec);
     lv_obj_scroll_to_y(page_, 0, LV_ANIM_OFF);
 }
@@ -522,6 +575,10 @@ void SettingsScreen::build_section(int sec)
     case S_SOS: sec_sos(); break;
     case S_NODE: sec_node(); break;
     case S_RADIO: sec_radio(); break;
+    default:
+        if (sec >= S_MODE0 && sec < S_MODE0 + MODE_COUNT)
+            sec_mode(sec - S_MODE0);
+        break;
     }
     sig_ = channel_signature();
     refresh_rows();
@@ -534,7 +591,7 @@ void SettingsScreen::rebuild_group(int focus_index)
     lv_group_add_obj(group, esc_);
     lv_obj_t *first = nullptr, *want = nullptr;
     if (section_ < 0) {
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < MODE_COUNT; i++)
             lv_group_add_obj(group, modes_[i]);
         for (int i = 0; i < S_COUNT; i++)
             lv_group_add_obj(group, tiles_[i]);
@@ -690,11 +747,10 @@ void SettingsScreen::refresh_rows()
 void SettingsScreen::refresh_tiles()
 {
     const Settings &st = app_->settings();
-    int on = -1;
-    for (int i = 0; i < 4; i++)
-        if (mode_matches(MODES[i], st))
-            on = i;
-    for (int i = 0; i < 4; i++) {
+    int on = mode_in_use(st);
+    for (int i = 0; i < MODE_COUNT; i++) {
+        set_text(mode_l1_[i], mode_line1(st.modes[i]));
+        set_text(mode_l2_[i], mode_line2(st.modes[i]));
         bool active = i == on;
         uint32_t color = MODES[i].color;
         set_bg(modes_[i], active ? color : col::SURF);
@@ -816,6 +872,75 @@ void SettingsScreen::sec_messages()
     x.confirm = true;
     x.act = [this] { app_->clear_all_chats(); };
     add(NOTE, tr("Los chats fuera de tu equipo marcan sus mensajes nuevos con un n\xC3\xBAmero gris en vez de azul."));
+}
+
+// Un modo: sus valores. Si es el modo en uso, cada cambio se aplica también a los ajustes
+// (así sigue "en uso"); si no, solo cambia lo que hará el modo al tocarlo.
+void SettingsScreen::sec_mode(int i)
+{
+    auto edit = [this, i](const std::function<void(ModeValues &)> &fn) {
+        Settings s = app_->settings();
+        bool used = mode_matches(s.modes[i], s);
+        fn(s.modes[i]);
+        if (used)
+            mode_apply(s.modes[i], s);
+        apply(s);
+    };
+#define MV app_->settings().modes[i]
+    Row &b = add(CHOICE, tr("Brillo"), "");
+    b.text = [this, i] { return pct(MV.brightness); };
+    b.step = [edit](int d, bool w) { edit([&](ModeValues &m) { m.brightness = pick<uint8_t>({20, 40, 60, 80, 100}, m.brightness, d, w); }); };
+    Row &o = add(CHOICE, tr("Apagar pantalla tras"), "");
+    o.text = [this, i] { return secs_text(MV.screen_off_s); };
+    o.step = [edit](int d, bool w) {
+        edit([&](ModeValues &m) {
+            static const std::vector<uint32_t> v = {15, 30, 60, 120, 300, 600, 100000};
+            uint32_t n = pick<uint32_t>(v, m.screen_off_s ? m.screen_off_s : 100000, d, w);
+            m.screen_off_s = (uint16_t)(n == 100000 ? 0 : n);
+        });
+    };
+    Row &k = add(TOGGLE, tr("Luz del teclado"), "");
+    k.get = [this, i] { return MV.kbd_light; };
+    k.set = [edit](bool v) {
+        edit([&](ModeValues &m) { m.kbd_light = v; });
+        return true;
+    };
+    Row &th = add(CHOICE, tr("Tema"), "");
+    th.text = [this, i] {
+        static const char *n[] = {"No cambia", "Claro", "Oscuro", "Autom\xC3\xA1tico"};
+        return std::string(tr(n[(MV.theme + 1) % 4]));
+    };
+    th.detail = [this, i] { return std::string(MV.theme < 0 ? tr("Queda el tema que est\xC3\xA9 puesto") : ""); };
+    th.step = [edit](int d, bool w) { edit([&](ModeValues &m) { m.theme = (int8_t)pick<int>({-1, 0, 1, 2}, m.theme, d, w); }); };
+    Row &p = add(CHOICE, tr("Enviar mi posici\xC3\xB3n cada"), "");
+    p.text = [this, i] { return secs_text(MV.pos_every_s); };
+    p.step = [edit](int d, bool w) { edit([&](ModeValues &m) { m.pos_every_s = pick<uint16_t>({60, 120, 300, 600, 900, 1800, 3600}, m.pos_every_s, d, w); }); };
+    Row &sm = add(TOGGLE, tr("Enviar antes si me muevo"), "");
+    sm.get = [this, i] { return MV.pos_smart; };
+    sm.set = [edit](bool v) {
+        edit([&](ModeValues &m) { m.pos_smart = v; });
+        return true;
+    };
+    Row &t = add(CHOICE, tr("Punto de ruta cada"), "");
+    t.text = [this, i] { return secs_text(MV.track_every_s); };
+    t.step = [edit](int d, bool w) { edit([&](ModeValues &m) { m.track_every_s = pick<uint8_t>({5, 10, 30, 60}, m.track_every_s, d, w); }); };
+    Row &u = add(ACTION, tr("Usar este modo"), "");
+    u.detail = [this, i] {
+        return std::string(mode_matches(MV, app_->settings()) ? tr("En uso: cada cambio se aplica de inmediato")
+                                                              : tr("Aplica estos valores ahora"));
+    };
+    u.text = [] { return std::string(tr("Usar")); };
+    u.enabled = [this, i] { return !mode_matches(MV, app_->settings()); };
+    u.act = [this, i] {
+        Settings s = app_->settings();
+        mode_apply(s.modes[i], s);
+        apply(s);
+    };
+    Row &r = add(ACTION, tr("Valores de f\xC3\xA1" "brica"), tr("Los de este modo al instalar"));
+    r.text = [] { return std::string(tr("Restaurar")); };
+    r.enabled = [this, i] { return MV != DEFAULT_MODES[i]; };
+    r.act = [edit, i] { edit([&](ModeValues &m) { m = DEFAULT_MODES[i]; }); };
+#undef MV
 }
 
 void SettingsScreen::sec_map()

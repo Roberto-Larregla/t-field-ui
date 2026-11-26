@@ -206,7 +206,14 @@ TEST(ajustes_texto)
     s.region = 1;
     s.preset = 3;
     s.hops = 5;
+    s.modes[1] = ModeValues{60, 0, true, 2, 1800, false, 5};
     Settings r = settings_from_text(settings_to_text(s));
+    CHECK(r.modes[1] == s.modes[1]);
+    CHECK(r.modes[0] == DEFAULT_MODES[0]);
+    // un modo mal escrito queda con sus valores de fábrica
+    Settings bad = settings_from_text("mode2=20,30,0,7,300,1,10\nmode3=1,2,3\n");
+    CHECK(bad.modes[2] == DEFAULT_MODES[2]);
+    CHECK(bad.modes[3] == DEFAULT_MODES[3]);
     CHECK_EQ((int)r.brightness, 40);
     CHECK_EQ((int)r.screen_off_s, 0);
     CHECK_EQ(r.kbd_light, false);

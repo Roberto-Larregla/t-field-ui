@@ -193,7 +193,13 @@ int main(int argc, char **argv)
             lv_timer_handler();
         }
         render(out + "/ajustes_modo.raw");
+        app.show_settings_section(tfield::SettingsScreen::S_MODE0 + 3); // página del modo (en uso)
+        render(out + "/ajustes_modo_campamento.raw");
+        app.back();
         app.update_settings(before);
+        app.show_settings_section(tfield::SettingsScreen::S_MODE0 + 0); // página de un modo que no está en uso
+        render(out + "/ajustes_modo_terreno.raw");
+        app.back();
     }
     const char *names[] = {"pantalla", "gps", "mensajes", "mapa", "canal", "sos", "nodo", "radio"};
     for (int i = 0; i < tfield::SettingsScreen::S_COUNT; i++) {

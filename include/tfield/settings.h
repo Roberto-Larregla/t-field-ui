@@ -35,6 +35,32 @@ struct ChannelMember {
 // Tipos de nombres en el mapa, de más a menos importante
 enum : uint8_t { MAP_NAMES_TEAM = 1, MAP_NAMES_SHARED = 2, MAP_NAMES_MINE = 4, MAP_NAMES_OTHERS = 8 };
 
+// Modos de Ajustes (Terreno, Ahorro, Noche, Campamento): lo que aplica cada uno al tocarlo.
+// Se cambian manteniendo apretado el modo.
+struct ModeValues {
+    uint8_t brightness;     // %
+    uint16_t screen_off_s;  // 0 = nunca
+    bool kbd_light;
+    int8_t theme;           // -1 = no cambia el tema; si no, como Settings::theme
+    uint16_t pos_every_s;
+    bool pos_smart;
+    uint8_t track_every_s;
+    bool operator==(const ModeValues &o) const
+    {
+        return brightness == o.brightness && screen_off_s == o.screen_off_s && kbd_light == o.kbd_light &&
+               theme == o.theme && pos_every_s == o.pos_every_s && pos_smart == o.pos_smart &&
+               track_every_s == o.track_every_s;
+    }
+    bool operator!=(const ModeValues &o) const { return !(*this == o); }
+};
+constexpr int MODE_COUNT = 4;
+inline const std::array<ModeValues, MODE_COUNT> DEFAULT_MODES = {{
+    {80, 60, true, 0, 120, true, 10},     // Terreno: tema claro
+    {40, 30, false, -1, 900, true, 30},   // Ahorro
+    {20, 30, false, 1, 300, true, 10},    // Noche: tema oscuro
+    {60, 300, true, -1, 1800, false, 60}, // Campamento: sin "antes si me muevo"
+}};
+
 struct Settings {
     // Pantalla y teclado
     uint8_t brightness = 70;    // 10..100 %
@@ -48,6 +74,8 @@ struct Settings {
     uint16_t pos_every_s = 900; // envío de posición a la red
     bool pos_smart = true;      // enviar antes si me muevo
     uint8_t track_every_s = 10; // punto de ruta al grabar
+    // Modos (Ajustes): sus valores, cambiables
+    std::array<ModeValues, MODE_COUNT> modes = DEFAULT_MODES;
     // Mensajes
     bool team_first = true;
     // Mapa y puntos

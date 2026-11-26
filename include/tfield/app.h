@@ -207,6 +207,7 @@ class TeamScreen {
 class SettingsScreen {
   public:
     enum Section { S_SCREEN, S_GPS, S_MESSAGES, S_MAP, S_CHANNEL, S_SOS, S_NODE, S_RADIO, S_COUNT };
+    static constexpr int S_MODE0 = S_COUNT; // S_MODE0 + i: página del modo i (Terreno, Ahorro, Noche, Campamento)
     void create(App *app);
     void show_home();
     void show_section(int s);
@@ -248,6 +249,7 @@ class SettingsScreen {
     void sec_sos();
     void sec_node();
     void sec_radio();
+    void sec_mode(int i);
     void refresh_rows();
     void refresh_tiles();
     void rebuild_group(int focus_index = -1);
@@ -262,8 +264,9 @@ class SettingsScreen {
     int section_ = -1;
     lv_obj_t *esc_ = nullptr, *title_ = nullptr, *grid_ = nullptr, *page_ = nullptr;
     lv_obj_t *tiles_[S_COUNT]{};
-    lv_obj_t *modes_[4]{}, *mode_img_[4]{}, *mode_name_[4]{}, *mode_on_[4]{}, *mode_l1_[4]{}, *mode_l2_[4]{},
-             *mode_state_ = nullptr;
+    lv_obj_t *modes_[MODE_COUNT]{}, *mode_img_[MODE_COUNT]{}, *mode_name_[MODE_COUNT]{}, *mode_on_[MODE_COUNT]{},
+             *mode_l1_[MODE_COUNT]{}, *mode_l2_[MODE_COUNT]{}, *mode_state_ = nullptr;
+    bool mode_held_ = false; // el modo se mantuvo apretado: el CLICKED que sigue no lo usa
     std::vector<Row> rows_;
     std::string sig_; // Canal privado: se reconstruye si cambia el canal o el equipo
     // Avanzado: los cambios de radio esperan "Aplicar"

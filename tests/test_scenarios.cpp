@@ -526,7 +526,7 @@ APP_TEST(hora_local)
 // ------------------------------------------------------------------ ajustes
 APP_TEST(ajustes_todas_las_filas)
 {
-    for (int sec = 0; sec < SettingsScreen::S_COUNT; sec++) {
+    for (int sec = 0; sec < SettingsScreen::S_MODE0 + MODE_COUNT; sec++) {
         app->show(ScreenId::Home);
         app->show(ScreenId::Settings);
         app->show_settings_section(sec);
@@ -597,6 +597,54 @@ APP_TEST(ajustes_modos)
     CHECK_EQ((int)app->settings().brightness, 20);
     CHECK(app->current() == ScreenId::Settings);
     CHECK(th::visible_text("en uso: Noche"));
+}
+
+static lv_obj_t *by_label(lv_group_t *g, const std::string &txt);
+
+APP_TEST(ajustes_configurar_modo)
+{
+    app->show(ScreenId::Settings);
+    // mantener apretado Ahorro (con la bola) abre su página, sin usarlo
+    lv_group_focus_obj(lv_group_get_obj_by_index(app->settings_screen.group, 2));
+    th::ball_press(700);
+    CHECK_EQ(app->settings_screen.section(), SettingsScreen::S_MODE0 + 1);
+    CHECK_EQ((int)app->settings().brightness, 70); // no se aplicó
+    CHECK(th::visible_text("Modo Ahorro"));
+    // no está en uso: cambiar su brillo no toca los ajustes
+    lv_group_t *g = app->settings_screen.group;
+    lv_group_focus_obj(lv_group_get_obj_by_index(g, 1)); // Brillo
+    th::key(LV_KEY_RIGHT);
+    CHECK_EQ((int)app->settings().modes[1].brightness, 60);
+    CHECK_EQ((int)app->settings().brightness, 70);
+    // Usar este modo
+    lv_obj_t *use = by_label(g, "Usar este modo");
+    CHECK(use != nullptr);
+    lv_obj_send_event(use, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK_EQ((int)app->settings().brightness, 60);
+    CHECK_EQ((int)app->settings().pos_every_s, 900);
+    CHECK(th::visible_text("En uso: cada cambio se aplica de inmediato"));
+    // en uso: cada cambio se aplica también a los ajustes
+    lv_group_focus_obj(lv_group_get_obj_by_index(app->settings_screen.group, 1));
+    th::key(LV_KEY_RIGHT);
+    CHECK_EQ((int)app->settings().modes[1].brightness, 80);
+    CHECK_EQ((int)app->settings().brightness, 80);
+    // se guarda al reiniciar
+    Settings back = settings_from_text(settings_to_text(app->settings()));
+    CHECK_EQ((int)back.modes[1].brightness, 80);
+    // Esc vuelve a Ajustes con la tarjeta al día
+    th::key(LV_KEY_ESC);
+    CHECK_EQ(app->settings_screen.section(), -1);
+    CHECK(th::visible_text("brillo 80 % \xC2\xB7 pantalla 30 s"));
+    CHECK(th::visible_text("en uso: Ahorro"));
+    // valores de fábrica
+    app->show_settings_section(SettingsScreen::S_MODE0 + 1);
+    lv_obj_t *reset = by_label(app->settings_screen.group, "Valores de f\xC3\xA1" "brica");
+    CHECK(reset != nullptr);
+    lv_obj_send_event(reset, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(app->settings().modes[1] == DEFAULT_MODES[1]);
+    CHECK_EQ((int)app->settings().brightness, 40); // seguía en uso: vuelve con él
 }
 
 APP_TEST(ajustes_radio_confirmar)

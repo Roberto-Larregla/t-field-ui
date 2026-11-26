@@ -178,6 +178,13 @@ std::string settings_to_text(const Settings &s)
     put("pos_every_s", s.pos_every_s);
     put("pos_smart", s.pos_smart);
     put("track_every_s", s.track_every_s);
+    for (int i = 0; i < MODE_COUNT; i++) { // modeN=brillo,pantalla,teclado,tema,posición,antes,ruta
+        const ModeValues &m = s.modes[i];
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "%d,%d,%d,%d,%d,%d,%d", m.brightness, m.screen_off_s, m.kbd_light, m.theme,
+                      m.pos_every_s, m.pos_smart, m.track_every_s);
+        puts(("mode" + std::to_string(i)).c_str(), buf);
+    }
     put("team_first", s.team_first);
     put("map_team_only", s.map_team_only);
     put("pts_team", (int)s.pts_team);
@@ -284,6 +291,14 @@ Settings settings_from_text(const std::string &text)
         else if (k == "pos_every_s") u16(s.pos_every_s, 30, 43200);
         else if (k == "pos_smart") flag(s.pos_smart);
         else if (k == "track_every_s") u8(s.track_every_s, 1, 255);
+        else if (k.size() == 5 && k.compare(0, 4, "mode") == 0 && k[4] >= '0' && k[4] < '0' + MODE_COUNT) {
+            long b, o, kb, th, p, sm, t;
+            char tail = 0;
+            if (std::sscanf(v.c_str(), "%ld,%ld,%ld,%ld,%ld,%ld,%ld%c", &b, &o, &kb, &th, &p, &sm, &t, &tail) == 7 &&
+                b >= 10 && b <= 100 && o >= 0 && o <= 3600 && kb >= 0 && kb <= 1 && th >= -1 && th <= 2 && p >= 30 &&
+                p <= 43200 && sm >= 0 && sm <= 1 && t >= 1 && t <= 255)
+                s.modes[k[4] - '0'] = ModeValues{(uint8_t)b, (uint16_t)o, kb != 0, (int8_t)th, (uint16_t)p, sm != 0, (uint8_t)t};
+        }
         else if (k == "team_first") flag(s.team_first);
         else if (k == "map_team_only") flag(s.map_team_only);
         else if (k == "pts_team") policy(s.pts_team);
