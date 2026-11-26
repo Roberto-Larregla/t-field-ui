@@ -644,23 +644,25 @@ APP_TEST(mapa_limpio_y_nombres)
     app->show(ScreenId::Map); // al volver, sin rastro: limpio otra vez
     th::tick(30);
     CHECK(!th::visible_text("GEO2"));
-    // Aa › Mi equipo: los nombres del equipo, siempre
+    // Capas: cada una con el ojo (se ve) y la etiqueta (nombres siempre)
     lv_group_t *g = app->map_screen.group;
-    lv_obj_t *aa = by_label(g, "Aa");
-    CHECK(aa != nullptr);
-    if (!aa)
-        return;
-    lv_obj_send_event(aa, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *layers = app->map_screen.layers_button();
+    CHECK(layers != nullptr);
+    lv_obj_send_event(layers, LV_EVENT_CLICKED, nullptr);
     th::tick(30);
-    CHECK(th::visible_text("Nombres en el mapa"));
-    lv_obj_t *team = by_label(g, "Mi equipo");
+    CHECK(th::visible_text("Capas"));
+    auto layer_row = [&](const char *name) -> lv_obj_t * {
+        lv_obj_t *r = by_label(g, name);
+        return r && lv_obj_get_child_count(r) >= 4 ? r : nullptr;
+    };
+    lv_obj_t *team = layer_row("Mi equipo");
     CHECK(team != nullptr);
     if (!team)
         return;
-    lv_obj_send_event(team, LV_EVENT_CLICKED, nullptr);
+    lv_obj_send_event(lv_obj_get_child(team, 3), LV_EVENT_CLICKED, nullptr); // etiqueta
     th::tick(30);
     CHECK(app->settings().map_names & MAP_NAMES_TEAM);
-    // uno por uno: un punto propio queda con nombre aunque "Mis puntos" esté apagado
+    // dentro de "Mis puntos": un punto con nombre aunque su capa no tenga
     const Waypoint *wp = nullptr;
     for (auto &w : app->waypoints())
         if (w.from.empty())
@@ -670,21 +672,51 @@ APP_TEST(mapa_limpio_y_nombres)
         return;
     uint32_t wid = wp->id;
     std::string wname = wp->name;
-    lv_obj_t *row = by_label(g, wname);
-    CHECK(row != nullptr);
-    if (row)
-        lv_obj_send_event(row, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *mine = layer_row("Mis puntos");
+    CHECK(mine != nullptr);
+    if (!mine)
+        return;
+    lv_obj_send_event(mine, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    CHECK(th::visible_text("Capas \xE2\x80\xBA Mis puntos"));
+    lv_obj_t *item_tag = nullptr;
+    lv_obj_t *list = lv_obj_get_parent(lv_obj_get_parent(th::focused()));
+    for (uint32_t k = 0; list && k < lv_obj_get_child_count(list); k++) {
+        lv_obj_t *row = lv_obj_get_child(list, (int32_t)k);
+        if (lv_obj_get_child_count(row) > 2 && wname == lv_label_get_text(lv_obj_get_child(row, 0)))
+            item_tag = lv_obj_get_child(row, 2);
+    }
+    CHECK(item_tag != nullptr);
+    if (item_tag)
+        lv_obj_send_event(item_tag, LV_EVENT_CLICKED, nullptr);
     th::tick(30);
     CHECK(std::find(app->settings().map_name_wps.begin(), app->settings().map_name_wps.end(), wid) !=
           app->settings().map_name_wps.end());
+    th::key(LV_KEY_ESC); // a la lista de capas
+    CHECK(th::visible_text("Mi equipo"));
     th::key(LV_KEY_ESC); // cierra el panel
     app->map_screen.focus_waypoint(wid); // el punto a la vista
     th::key(LV_KEY_ESC);                 // sin elegir: queda su nombre en el mapa
     th::tick(30);
     CHECK(th::visible_text("GEO2"));
     CHECK(th::visible_text(wname));
+    // ojo de "Mis puntos": la capa se oculta (y su nombre con ella)
+    lv_obj_send_event(layers, LV_EVENT_CLICKED, nullptr);
+    th::tick(30);
+    mine = layer_row("Mis puntos");
+    CHECK(mine != nullptr);
+    if (mine)
+        lv_obj_send_event(lv_obj_get_child(mine, 2), LV_EVENT_CLICKED, nullptr);
+    th::key(LV_KEY_ESC);
+    th::tick(30);
+    CHECK(app->settings().map_hidden & MAP_NAMES_MINE);
+    app->show(ScreenId::Home); // al volver, sin el punto resaltado (ese se ve igual)
+    app->show(ScreenId::Map);
+    th::tick(30);
+    CHECK(!th::visible_text(wname));
     // se guardan (sobreviven a reiniciar)
     Settings back = settings_from_text(settings_to_text(app->settings()));
     CHECK_EQ((int)back.map_names, (int)app->settings().map_names);
+    CHECK_EQ((int)back.map_hidden, (int)app->settings().map_hidden);
     CHECK(back.map_name_wps == app->settings().map_name_wps);
 }

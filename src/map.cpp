@@ -10,6 +10,11 @@
 #include <cmath>
 #include <cstdio>
 
+// pictogramas (fonts/tfield_pictos.c, C): fuera del namespace
+LV_IMAGE_DECLARE(tfield_picto_layers);
+LV_IMAGE_DECLARE(tfield_picto_eye);
+LV_IMAGE_DECLARE(tfield_picto_tag);
+
 namespace tfield {
 
 using namespace ui;
@@ -184,7 +189,7 @@ void MapScreen::create(App *app)
 
     // Coordenadas, norte, escala, atribución
     coords_ = pill(view, &tfield_font_12, col::INK, col::SURF, LV_OPA_90);
-    north_ = box(view, MAP_W - 20, 3, 16, 30, col::SURF);
+    north_ = box(view, 3, MAP_H - 33, 16, 30, col::SURF);
     lv_obj_set_style_bg_opa(north_, LV_OPA_TRANSP, 0);
     lv_obj_t *nl = label(north_, &tfield_font_12b, col::INK, tr("N"));
     ui::align(nl, LV_ALIGN_TOP_MID, 0, -1);
@@ -215,7 +220,7 @@ void MapScreen::create(App *app)
             lv_draw_triangle(layer, &t);
         },
         LV_EVENT_DRAW_MAIN, nullptr);
-    scale_bar_ = box(view, 6, MAP_H - 9, 60, 4, col::INK);
+    scale_bar_ = box(view, 24, MAP_H - 9, 60, 4, col::INK);
     border(scale_bar_, col::SURF, 1);
     scale_lbl_ = pill(view, &tfield_font_12b, col::INK, col::SURF, LV_OPA_80);
     attrib_ = pill(view, &tfield_font_12, col::INK2, col::SURF, LV_OPA_80);
@@ -258,10 +263,14 @@ void MapScreen::create(App *app)
         btn_ruler_, [](lv_event_t *e) { static_cast<MapScreen *>(lv_event_get_user_data(e))->ruler_toggle(); },
         LV_EVENT_CLICKED, this);
 
-    // Nombres en el mapa: por tipo y uno por uno
+    // Capas: qué se ve y qué lleva nombre (por capa y, dentro de una, uno por uno)
     btn_names_ = map_button(view, 148, group);
-    names_lbl_ = label(btn_names_, &tfield_font_12b, col::INK, "Aa");
-    lv_obj_center(names_lbl_);
+    names_img_ = lv_image_create(btn_names_);
+    lv_image_set_src(names_img_, &tfield_picto_layers);
+    lv_obj_set_style_image_recolor_opa(names_img_, LV_OPA_COVER, 0);
+    lv_obj_set_style_image_recolor(names_img_, c(col::INK), 0);
+    lv_obj_remove_flag(names_img_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_center(names_img_);
     lv_obj_add_event_cb(
         btn_names_, [](lv_event_t *e) {
             auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
@@ -326,11 +335,18 @@ void MapScreen::create(App *app)
     lv_obj_t *ph = box(panel_, 0, 1, SCREEN_W, 20, col::BG);
     panel_title_ = label(ph, &tfield_font_12b, col::INK, "");
     lv_obj_set_pos(panel_title_, 6, 3);
-    lv_obj_t *pc = button(ph, SCREEN_W - 58, 2, 54, 16, col::SURF, col::INK, nullptr);
+    lv_obj_t *pc = button(ph, SCREEN_W - 66, 2, 62, 16, col::SURF, col::INK, nullptr);
     lv_obj_set_style_radius(pc, 2, 0);
-    lv_obj_center(label(pc, &tfield_font_12b, col::INK, tr("Cerrar")));
+    panel_close_lbl_ = label(pc, &tfield_font_12b, col::INK, tr("Cerrar"));
+    lv_obj_center(panel_close_lbl_);
     lv_obj_add_event_cb(
-        pc, [](lv_event_t *e) { static_cast<MapScreen *>(lv_event_get_user_data(e))->show_panel(PANEL_NONE); },
+        pc, [](lv_event_t *e) {
+            auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+            if (s->panel_kind_ == PANEL_NAMES && s->layer_view_ >= 0) // dentro de una capa: a la lista
+                s->open_layer_items(-1);
+            else
+                s->show_panel(PANEL_NONE);
+        },
         LV_EVENT_CLICKED, this);
     panel_list_ = box(panel_, 0, 21, SCREEN_W, 121, col::SURF);
     lv_obj_add_flag(panel_list_, LV_OBJ_FLAG_SCROLLABLE);
@@ -1076,18 +1092,18 @@ void MapScreen::redraw()
         ui::align(cross_, LV_ALIGN_CENTER, 0, 0);
     }
     lv_obj_set_pos(coords_, 4, strip_on ? 24 : 4);
-    lv_obj_set_pos(north_, MAP_W - 20, strip_on ? 23 : 3);
-    // la columna de botones baja cuando hay franja arriba, para no tapar la flecha del norte
-    // (y se junta: los 5 caben en el alto del mapa)
-    static const int32_t Y_FREE[5] = {36, 63, 94, 121, 148}, Y_STRIP[5] = {52, 78, 104, 130, 156};
-    const int32_t *ys = strip_on ? Y_STRIP : Y_FREE;
-    lv_obj_set_y(zoom_btn_[0], ys[0]);
-    lv_obj_set_y(zoom_btn_[1], ys[1]);
-    lv_obj_set_y(btn_center_, ys[2]);
-    lv_obj_set_y(btn_ruler_, ys[3]);
-    lv_obj_set_y(btn_names_, ys[4]);
+    lv_obj_set_pos(north_, 3, MAP_H - 33); // abajo a la izquierda, junto a la escala
+    // columna de botones centrada en el alto libre (bajo la franja, si la hay)
+    {
+        int32_t top = strip_on ? 20 : 0, step = 27, n = 5;
+        int32_t y0 = top + (MAP_H - top - (n * step - 2)) / 2;
+        lv_obj_t *col_btns[5] = {zoom_btn_[0], zoom_btn_[1], btn_center_, btn_ruler_, btn_names_};
+        for (int32_t i = 0; i < n; i++)
+            lv_obj_set_y(col_btns[i], y0 + i * step);
+    }
 
     place_markers();
+    update_names_button(); // los ajustes pudieron cambiar en otra pantalla
 
     // --- Regla
     if (ruler_ >= 2) {
@@ -1125,7 +1141,7 @@ void MapScreen::redraw()
             dist = d;
     int32_t len = (int32_t)std::lround(dist / mpp);
     lv_obj_set_size(scale_bar_, len + 2, 5);
-    lv_obj_set_pos(scale_bar_, 6, MAP_H - 10);
+    lv_obj_set_pos(scale_bar_, 24, MAP_H - 10);
     set_text(scale_lbl_, dist >= 1000 ? std::to_string(dist / 1000) + tr(" km") : std::to_string(dist) + tr(" m"));
     ui::align_to(scale_lbl_, scale_bar_, LV_ALIGN_OUT_RIGHT_MID, 4, -1);
 
@@ -1206,6 +1222,9 @@ void MapScreen::place_markers()
             double dx = sx - MAP_W / 2.0, dy = sy - MAP_H / 2.0;
             bool key = (nav_.on && nav_.wp == all[i].id) || highlight_wp_ == all[i].id ||
                        (sel_kind_ == SEL_WP && sel_id_ == all[i].id);
+            uint8_t layer = all[i].from.empty() ? MAP_NAMES_MINE : MAP_NAMES_SHARED;
+            if ((st.map_hidden & layer) && !key) // capa oculta (el destino y lo elegido, igual se ven)
+                continue;
             wv.push_back({&all[i], sx, sy, key ? -1.0 : dx * dx + dy * dy});
         }
         if (wp_xy_.size() > all.size())
@@ -1256,7 +1275,10 @@ void MapScreen::place_markers()
             continue;
         int32_t sx, sy;
         bool inside = cached_screen(node_xy_, ni, n.num, n.lat, n.lon, sx, sy);
-        if (n.in_team || n.num == trail_node_ || (sel_kind_ == SEL_NODE && sel_id_ == n.num))
+        bool key = n.num == trail_node_ || (sel_kind_ == SEL_NODE && sel_id_ == n.num) || (nav_.on && nav_.node == n.num);
+        if (n.in_team && (st.map_hidden & MAP_NAMES_TEAM) && !key)
+            continue; // capa "Mi equipo" oculta
+        if (n.in_team || key)
             list.push_back({&n, sx, sy, inside});
         else if (inside && !team_only_)
             others.push_back({&n, sx, sy, inside});
@@ -1668,6 +1690,7 @@ void MapScreen::ruler_tap(int32_t sx, int32_t sy)
 void MapScreen::show_panel(int which)
 {
     panel_kind_ = which;
+    set_text(panel_close_lbl_, tr("Cerrar"));
     if (which == PANEL_NONE) {
         show(panel_, false);
         return;
@@ -1676,8 +1699,10 @@ void MapScreen::show_panel(int which)
         rebuild_points_panel();
     else if (which == PANEL_ROUTES)
         rebuild_routes_panel();
-    else if (which == PANEL_NAMES)
+    else if (which == PANEL_NAMES) {
+        layer_view_ = -1;
         rebuild_names_panel();
+    }
     else
         rebuild_layers_panel();
     show(panel_, true);
@@ -1822,55 +1847,151 @@ void MapScreen::rebuild_layers_panel()
     empty_note(panel_list_, tr("M\xC3\xA1s mapas: carpetas /maps/<nombre>/z/x/y.png o archivos .pmtiles en la tarjeta SD."));
 }
 
-// Nombres en el mapa: por tipo (de más a menos importante) y uno por uno
+// Capas, de arriba hacia abajo como se dibujan: Mi equipo, Otros nodos de la red, Puntos
+// compartidos, Mis puntos (y el mapa base). Cada una: el ojo (se ve o no) y la etiqueta
+// (nombres siempre a la vista). Tocar el nombre de una capa abre sus elementos, para marcar
+// uno por uno cuáles llevan nombre aunque su capa no.
+static const uint8_t LAYER_BITS[4] = {MAP_NAMES_TEAM, MAP_NAMES_OTHERS, MAP_NAMES_SHARED, MAP_NAMES_MINE};
+static const char *const LAYER_NAMES[4] = {"Mi equipo", "Otros nodos de la red", "Puntos compartidos", "Mis puntos"};
+
+// botoncito de una fila: ojo o etiqueta; lleno = activo
+static lv_obj_t *layer_toggle(lv_obj_t *row, int32_t x, const lv_image_dsc_t *icon, lv_group_t *g)
+{
+    lv_obj_t *b = button(row, x, 5, 30, 22, col::SURF, col::LINE, g);
+    lv_obj_set_style_radius(b, 3, 0);
+    lv_obj_t *img = lv_image_create(b);
+    lv_image_set_src(img, icon);
+    lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(img, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_center(img);
+    return b;
+}
+
+static void toggle_look(lv_obj_t *b, bool on, bool usable = true)
+{
+    set_bg(b, on && usable ? col::INK : col::SURF);
+    set_border_color(b, on && usable ? col::INK : col::LINE);
+    lv_obj_set_style_image_recolor(lv_obj_get_child(b, 0), c(on && usable ? col::SURF : col::MUTED), 0);
+}
+
 void MapScreen::rebuild_names_panel()
 {
     lv_obj_clean(panel_list_);
     names_rows_.clear();
-    set_text(panel_title_, tr("Nombres en el mapa"));
+    set_text(panel_title_, tr("Capas"));
+    set_text(panel_close_lbl_, tr("Cerrar"));
     const Settings &st = app_->settings();
-    // tocar una fila cambia su "S\xC3\xAD/No" en el lugar (sin rehacer la lista: no salta el foco)
-    auto toggle_cb = [](lv_event_t *e) {
-        auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
-        lv_obj_t *row = (lv_obj_t *)lv_event_get_current_target(e);
-        size_t i = (size_t)(uintptr_t)lv_obj_get_user_data(row);
-        Settings st = s->app_->settings();
-        bool on;
-        if (i < 4) { // por tipo
-            uint8_t bit = (uint8_t)(1u << i);
-            st.map_names ^= bit;
-            on = st.map_names & bit;
-        } else {
-            auto [kind, id] = s->names_rows_[i - 4];
-            auto &v = kind == SEL_NODE ? st.map_name_nodes : st.map_name_wps;
-            auto it = std::find(v.begin(), v.end(), id);
-            on = it == v.end();
-            if (on) {
-                v.push_back(id);
-                if (v.size() > 64)
-                    v.erase(v.begin());
-            } else
-                v.erase(it);
-        }
-        s->app_->update_settings(st);
-        lv_obj_t *right = lv_obj_get_child(row, (int32_t)lv_obj_get_child_count(row) - 1);
-        set_text(right, on ? tr("S\xC3\xAD") : tr("No"));
-        s->update_names_button();
-        s->place_markers();
-    };
-    static const char *const TYPES[4][2] = {
-        {"Mi equipo", "sus nombres siempre a la vista"},
-        {"Puntos compartidos", "los que te env\xC3\xAD" "an otros equipos"},
-        {"Mis puntos", "los que marcaste en este equipo"},
-        {"Otros nodos de la red", "fuera de tu equipo"}};
-    for (size_t i = 0; i < 4; i++) {
-        bool on = st.map_names & (1u << i);
-        lv_obj_t *r = list_row(panel_list_, group, false, tr(TYPES[i][0]), tr(TYPES[i][1]), on ? tr("S\xC3\xAD") : tr("No"));
-        lv_obj_set_user_data(r, (void *)(uintptr_t)i);
-        lv_obj_add_event_cb(r, toggle_cb, LV_EVENT_CLICKED, this);
+    // cuántos hay en cada capa
+    unsigned count[4] = {0, 0, 0, 0};
+    for (auto &n : team_nodes())
+        if (n.has_pos)
+            count[n.in_team ? 0 : 1]++;
+    for (auto &w : wps())
+        count[w.from.empty() ? 3 : 2]++;
+    for (int i = 0; i < 4; i++) {
+        bool hidden = i == 1 ? team_only_ : (st.map_hidden & LAYER_BITS[i]);
+        bool named = st.map_names & LAYER_BITS[i];
+        lv_obj_t *r = button(panel_list_, 0, 0, SCREEN_W, 32, col::SURF, 0, group);
+        lv_obj_set_style_radius(r, 0, 0);
+        border(r, col::LINE2, 1, LV_BORDER_SIDE_BOTTOM);
+        lv_obj_set_style_bg_color(r, c(col::BG), LV_STATE_PRESSED);
+        lv_obj_t *nm = label(r, &tfield_font_14b, hidden ? col::MUTED : col::INK, tr(LAYER_NAMES[i]));
+        lv_obj_set_pos(nm, 8, 1);
+        char buf[48];
+        if (count[i] == 1)
+            snprintf(buf, sizeof(buf), "%s", i < 2 ? tr("1 nodo") : tr("1 punto"));
+        else
+            snprintf(buf, sizeof(buf), i < 2 ? tr("%u nodos") : tr("%u puntos"), count[i]);
+        lv_obj_t *sub = label(r, &tfield_font_12, col::INK2, buf);
+        lv_obj_set_pos(sub, 8, 16);
+        lv_obj_t *eye = layer_toggle(r, 222, &tfield_picto_eye, group);
+        lv_obj_t *tag = layer_toggle(r, 256, &tfield_picto_tag, group);
+        toggle_look(eye, !hidden);
+        toggle_look(tag, named, !hidden);
+        lv_obj_t *chev = label(r, &tfield_font_14b, col::INK2, "\xE2\x80\xBA");
+        lv_obj_set_pos(chev, 297, 6);
+        lv_obj_set_user_data(r, (void *)(intptr_t)i);
+        lv_obj_set_user_data(eye, (void *)(intptr_t)i);
+        lv_obj_set_user_data(tag, (void *)(intptr_t)i);
+        // fila: ver sus elementos
+        lv_obj_add_event_cb(
+            r, [](lv_event_t *e) {
+                auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+                int i = (int)(intptr_t)lv_obj_get_user_data((lv_obj_t *)lv_event_get_current_target(e));
+                lv_async_call([](void *p) { // la lista se rehace: fuera del evento
+                    auto *pr = static_cast<std::pair<MapScreen *, int> *>(p);
+                    pr->first->open_layer_items(pr->second);
+                    delete pr;
+                }, new std::pair<MapScreen *, int>(s, i));
+            },
+            LV_EVENT_CLICKED, this);
+        // ojo: la capa se ve o no
+        lv_obj_add_event_cb(
+            eye, [](lv_event_t *e) {
+                auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+                lv_obj_t *b = (lv_obj_t *)lv_event_get_current_target(e);
+                int i = (int)(intptr_t)lv_obj_get_user_data(b);
+                Settings st = s->app_->settings();
+                bool hidden;
+                if (i == 1) { // otros nodos: el mismo ajuste de Ajustes › Mapa y puntos
+                    st.map_team_only = !st.map_team_only;
+                    hidden = st.map_team_only;
+                } else {
+                    st.map_hidden ^= LAYER_BITS[i];
+                    hidden = st.map_hidden & LAYER_BITS[i];
+                }
+                s->app_->update_settings(st);
+                lv_obj_t *row = lv_obj_get_parent(b);
+                toggle_look(b, !hidden);
+                toggle_look(lv_obj_get_child(row, 3), st.map_names & LAYER_BITS[i], !hidden);
+                set_color(lv_obj_get_child(row, 0), hidden ? col::MUTED : col::INK);
+                s->update_names_button();
+                s->redraw();
+            },
+            LV_EVENT_CLICKED, this);
+        // etiqueta: nombres siempre a la vista
+        lv_obj_add_event_cb(
+            tag, [](lv_event_t *e) {
+                auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+                lv_obj_t *b = (lv_obj_t *)lv_event_get_current_target(e);
+                int i = (int)(intptr_t)lv_obj_get_user_data(b);
+                Settings st = s->app_->settings();
+                st.map_names ^= LAYER_BITS[i];
+                s->app_->update_settings(st);
+                bool hidden = i == 1 ? st.map_team_only : (st.map_hidden & LAYER_BITS[i]);
+                toggle_look(b, st.map_names & LAYER_BITS[i], !hidden);
+                s->update_names_button();
+                s->place_markers();
+            },
+            LV_EVENT_CLICKED, this);
     }
-    empty_note(panel_list_, tr("Uno por uno (siempre con nombre, aunque su tipo no lo tenga):"));
-    // compañeros y puntos, los más cercanos primero (hasta 40)
+    // mapa base: la misma lista que el botón de arriba
+    lv_obj_t *r = list_row(panel_list_, group, false, tr("Mapa base"),
+                           layer_ >= 0 && layer_ < (int)layers_.size() ? std::string(layers_[layer_]->name()) : std::string(tr("Sin mapa base")),
+                           "\xE2\x80\xBA");
+    lv_obj_add_event_cb(
+        r, [](lv_event_t *e) {
+            auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+            lv_async_call([](void *p) { static_cast<MapScreen *>(p)->show_panel(PANEL_LAYERS); }, s);
+        },
+        LV_EVENT_CLICKED, this);
+}
+
+// Dentro de una capa: cada elemento con su etiqueta (nombre siempre a la vista, uno por uno)
+void MapScreen::open_layer_items(int layer)
+{
+    layer_view_ = layer;
+    if (layer < 0) {
+        rebuild_names_panel();
+        if (lv_obj_get_child_count(panel_list_) > 0)
+            lv_group_focus_obj(lv_obj_get_child(panel_list_, 0));
+        return;
+    }
+    lv_obj_clean(panel_list_);
+    names_rows_.clear();
+    set_text(panel_title_, std::string(tr("Capas")) + " \xE2\x80\xBA " + tr(LAYER_NAMES[layer]));
+    set_text(panel_close_lbl_, std::string("\xE2\x80\xB9 ") + tr("Capas"));
+    const Settings &st = app_->settings();
     struct Item {
         uint8_t kind;
         uint32_t id;
@@ -1878,42 +1999,85 @@ void MapScreen::rebuild_names_panel()
         double d;
     };
     std::vector<Item> items;
-    for (auto &n : team_nodes())
-        if (n.in_team && n.has_pos)
-            items.push_back({SEL_NODE, n.num, n.name,
-                             std::string(tr("compa\xC3\xB1" "ero")) + " \xC2\xB7 " + format_distance(n.dist_m) + " " + cardinal(n.bearing_deg),
-                             (double)n.dist_m});
-    for (auto &w : wps()) {
-        double d = pos_.valid ? haversine_m(pos_.lat, pos_.lon, w.lat, w.lon) : 0;
-        std::string detail = std::string(tr("punto")) + (pos_.valid ? " \xC2\xB7 " + format_distance((int32_t)d) : std::string());
-        if (!w.from.empty())
-            detail += " \xC2\xB7 " + std::string(tr("de ")) + w.from;
-        items.push_back({SEL_WP, w.id, w.name, detail, d});
+    if (layer < 2) {
+        for (auto &n : team_nodes())
+            if (n.has_pos && n.in_team == (layer == 0)) {
+                std::string detail = format_distance(n.dist_m) + " " + cardinal(n.bearing_deg) + " \xC2\xB7 " + format_ago(n.heard_ago_s);
+                items.push_back({SEL_NODE, n.num, n.name, detail, (double)n.dist_m});
+            }
+    } else {
+        for (auto &w : wps())
+            if (w.from.empty() == (layer == 3)) {
+                double d = pos_.valid ? haversine_m(pos_.lat, pos_.lon, w.lat, w.lon) : 0;
+                std::string detail = pos_.valid ? format_distance((int32_t)d) + " " + cardinal((int)bearing_deg(pos_.lat, pos_.lon, w.lat, w.lon)) : w.time;
+                if (!w.from.empty())
+                    detail += " \xC2\xB7 " + std::string(tr("de ")) + w.from;
+                items.push_back({SEL_WP, w.id, w.name, detail, d});
+            }
     }
-    std::stable_sort(items.begin(), items.end(), [](const Item &a, const Item &b) {
-        return a.kind != b.kind ? a.kind < b.kind : a.d < b.d;
-    });
+    std::stable_sort(items.begin(), items.end(), [](const Item &a, const Item &b) { return a.d < b.d; });
     if (items.size() > 40)
         items.resize(40);
     for (auto &it : items) {
         const auto &v = it.kind == SEL_NODE ? st.map_name_nodes : st.map_name_wps;
         bool on = std::find(v.begin(), v.end(), it.id) != v.end();
-        lv_obj_t *r = list_row(panel_list_, group, false, it.name, it.detail, on ? tr("S\xC3\xAD") : tr("No"));
-        lv_obj_set_user_data(r, (void *)(uintptr_t)(4 + names_rows_.size()));
+        lv_obj_t *r = button(panel_list_, 0, 0, SCREEN_W, 32, col::SURF, 0, nullptr);
+        lv_obj_set_style_radius(r, 0, 0);
+        border(r, col::LINE2, 1, LV_BORDER_SIDE_BOTTOM);
+        lv_obj_remove_flag(r, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_t *nm = label(r, &tfield_font_14b, col::INK, it.name.c_str());
+        lv_obj_set_pos(nm, 8, 1);
+        lv_obj_t *sub = label(r, &tfield_font_12, col::INK2, it.detail.c_str());
+        lv_obj_set_pos(sub, 8, 16);
+        lv_obj_set_size(sub, 240, 14);
+        lv_label_set_long_mode(sub, LV_LABEL_LONG_MODE_DOTS);
+        lv_obj_t *tag = layer_toggle(r, 282, &tfield_picto_tag, group);
+        toggle_look(tag, on);
+        lv_obj_set_user_data(tag, (void *)(uintptr_t)names_rows_.size());
         names_rows_.push_back({it.kind, it.id});
-        lv_obj_add_event_cb(r, toggle_cb, LV_EVENT_CLICKED, this);
+        lv_obj_add_event_cb(
+            tag, [](lv_event_t *e) {
+                auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
+                lv_obj_t *b = (lv_obj_t *)lv_event_get_current_target(e);
+                auto [kind, id] = s->names_rows_[(size_t)(uintptr_t)lv_obj_get_user_data(b)];
+                Settings st = s->app_->settings();
+                auto &v = kind == SEL_NODE ? st.map_name_nodes : st.map_name_wps;
+                auto f = std::find(v.begin(), v.end(), id);
+                bool on = f == v.end();
+                if (on) {
+                    v.push_back(id);
+                    if (v.size() > 64)
+                        v.erase(v.begin());
+                } else
+                    v.erase(f);
+                s->app_->update_settings(st);
+                toggle_look(b, on);
+                s->update_names_button();
+                s->place_markers();
+            },
+            LV_EVENT_CLICKED, this);
+    }
+    if (items.empty())
+        empty_note(panel_list_, tr("Esta capa no tiene elementos."));
+    // foco en el primero
+    for (uint32_t k = 0; k < lv_obj_get_child_count(panel_list_); k++) {
+        lv_obj_t *row = lv_obj_get_child(panel_list_, (int32_t)k);
+        if (lv_obj_get_child_count(row) > 2) {
+            lv_group_focus_obj(lv_obj_get_child(row, 2));
+            break;
+        }
     }
 }
 
-// "Aa" lleno cuando hay nombres a la vista sin elegir nada
+// el botón de capas, lleno cuando algo se aparta de lo normal (capa oculta o con nombres)
 void MapScreen::update_names_button()
 {
     if (!btn_names_)
         return;
     const Settings &st = app_->settings();
-    bool any = st.map_names || !st.map_name_nodes.empty() || !st.map_name_wps.empty();
+    bool any = st.map_names || st.map_hidden || st.map_team_only || !st.map_name_nodes.empty() || !st.map_name_wps.empty();
     set_bg(btn_names_, any ? col::INK : col::SURF);
-    set_color(names_lbl_, any ? col::SURF : col::INK);
+    lv_obj_set_style_image_recolor(names_img_, c(any ? col::SURF : col::INK), 0);
 }
 
 void MapScreen::set_team_only(bool on)
@@ -2582,6 +2746,10 @@ bool MapScreen::handle_esc()
     }
     if (dlg_kind_ != DLG_NONE) {
         close_dialog();
+        return true;
+    }
+    if (panel_kind_ == PANEL_NAMES && layer_view_ >= 0) { // dentro de una capa: a la lista
+        open_layer_items(-1);
         return true;
     }
     if (panel_kind_) {

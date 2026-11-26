@@ -196,6 +196,7 @@ std::string settings_to_text(const Settings &s)
         kept += (kept.empty() ? "" : ",") + std::to_string(n);
     puts("chats", kept);
     put("map_names", s.map_names);
+    put("map_hidden", s.map_hidden);
     auto join = [](const std::vector<uint32_t> &v) {
         std::string out;
         for (uint32_t n : v)
@@ -293,6 +294,7 @@ Settings settings_from_text(const std::string &text)
         else if (k == "sos_team_ch") flag(s.sos_team_ch);
         else if (k == "sos_every_min") u8(s.sos_every_min, 1, 60);
         else if (k == "map_names") u8(s.map_names, 0, 15);
+        else if (k == "map_hidden") u8(s.map_hidden, 0, 7);
         else if (k == "team" || k == "chats" || k == "map_name_nodes" || k == "map_name_wps") {
             std::vector<uint32_t> &list = k == "team" ? s.team : k == "chats" ? s.kept_chats
                                         : k == "map_name_nodes" ? s.map_name_nodes : s.map_name_wps;

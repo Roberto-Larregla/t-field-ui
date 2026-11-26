@@ -78,6 +78,7 @@ class MapScreen {
     lv_obj_t *screen = nullptr;
     lv_group_t *group = nullptr;
     lv_obj_t *view = nullptr; // el área del mapa (enfocable)
+    lv_obj_t *layers_button() const { return btn_names_; }
 
   private:
     struct NodeMarker {
@@ -148,7 +149,8 @@ class MapScreen {
     void rebuild_points_panel();
     void rebuild_layers_panel();
     void rebuild_routes_panel();
-    void rebuild_names_panel();
+    void rebuild_names_panel();   // Capas: ver y nombres por capa; dentro de una, uno por uno
+    void open_layer_items(int layer);
     // elegir un marcador: anillo y ficha con nombre, distancia y desnivel
     void select(uint8_t kind, uint32_t id);
     void clear_selection();
@@ -225,7 +227,8 @@ class MapScreen {
     uint32_t sel_id_ = 0;
     lv_obj_t *sel_ring_ = nullptr, *callout_ = nullptr, *callout_l1_ = nullptr, *callout_l2_ = nullptr,
              *callout_l3_ = nullptr;
-    lv_obj_t *btn_names_ = nullptr, *names_lbl_ = nullptr;
+    lv_obj_t *btn_names_ = nullptr, *names_img_ = nullptr, *panel_close_lbl_ = nullptr;
+    int layer_view_ = -1; // en el panel Capas: -1 la lista de capas; 0..3 los elementos de una
     std::vector<std::pair<uint8_t, uint32_t>> names_rows_; // filas "uno por uno" del panel Nombres
     lv_obj_t *coords_ = nullptr, *strip_ = nullptr, *strip_lbl_ = nullptr;
     lv_obj_t *scale_bar_ = nullptr, *scale_lbl_ = nullptr, *attrib_ = nullptr, *north_ = nullptr;

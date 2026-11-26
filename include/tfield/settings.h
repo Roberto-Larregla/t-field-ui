@@ -55,6 +55,7 @@ struct Settings {
     // Nombres en el mapa (el mapa va limpio: el nombre de algo se ve al elegirlo). Por tipo
     // (MAP_NAMES_*) y uno por uno (nodos y puntos marcados "siempre con nombre", máx. 64)
     uint8_t map_names = 0;
+    uint8_t map_hidden = 0; // capas ocultas (MAP_NAMES_TEAM/SHARED/MINE; los otros nodos: map_team_only)
     std::vector<uint32_t> map_name_nodes, map_name_wps;
     PointPolicy pts_team = PointPolicy::Auto;
     PointPolicy pts_others = PointPolicy::Ask;
