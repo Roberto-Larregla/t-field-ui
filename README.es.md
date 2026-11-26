@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/banner.jpg" alt="T-Field UI para Meshtastic: comunicación, mapa y navegación en terreno" width="100%">
+  <img src="docs/img/banner-es.jpg" alt="T-Field UI para Meshtastic: comunicación, mapa y navegación en terreno" width="100%">
 </p>
 
 # T-Field UI
@@ -24,7 +24,7 @@ La interfaz está en **español e inglés**, con tema **claro, oscuro o automát
 - **Mapa:** mapa base desde la tarjeta SD o cuadrícula UTM; puntos (P1, P2…), rutas grabadas en GPX (R1, R2…), regla, destino y rastro de cada compañero. Va limpio, sin nombres encima: al tocar un marcador (o recorrerlos con ← →) aparece su ficha con distancia y desnivel, y el botón de **capas** muestra u oculta cada capa (mi equipo, otros nodos de la red, puntos compartidos, mis puntos) y elige cuáles llevan nombre, por capa o, dentro de una, uno por uno. Quien está fuera de la vista aparece en el borde con una flecha.
 - **Equipo:** una ficha por compañero con distancia y rumbo (flecha), desnivel, batería y señal; «Mi equipo» y toda la red, que se deslizan hacia abajo cuando no caben (con "5–8 de 12"); ficha de cada nodo con sus acciones, pedir posiciones a todos y ruta de señal.
 - **SOS:** por el canal y directo a cada miembro, mostrando quién lo recibió.
-- **Ajustes:** cuatro modos de un toque (Terreno, Ahorro, Noche y Campamento: brillo, apagado de pantalla, luz del teclado, tema y cada cuánto se envía la posición); si cambias algo a mano, el modo queda "personalizado". Abajo, Configuración: pantalla, GPS, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio, con interruptores para las opciones de sí o no.
+- **Ajustes:** cuatro modos de un toque (Terreno, Ahorro, Noche y Campamento: brillo, apagado de pantalla, luz del teclado, tema y cada cuánto se envía la posición); mantén apretado un modo para cambiar lo que ajusta, y si cambias algo a mano, el modo queda "personalizado". Abajo, Configuración: pantalla, GPS, mensajes, mapa, canal privado con invitación cifrada, SOS, nodo y hora, y radio, con interruptores para las opciones de sí o no.
 - **Modo oscuro:** no encandila de noche y atenúa el mapa base. En la pantalla IPS de la T-Deck no ahorra batería: eso lo hace el brillo.
 - **Teclado y bola:** todo se puede usar sin tocar la pantalla.
 
@@ -152,7 +152,12 @@ python3 sim/raw2png.py /tmp/es && python3 sim/raw2png.py /tmp/eso
 python3 sim/composite.py /tmp/es /tmp/eso docs/img/pantallas.png es
 ```
 
-(lo mismo con `en` para `docs/img/screens-en.png`).
+(lo mismo con `en` para `docs/img/screens-en.png`). Para poner la pantalla de inicio actual en el aparato de los dos banners (`banner-es.jpg`, `banner-en.jpg`) y en `social-preview.png`, con capturas de tema claro en español e inglés (necesita OpenCV):
+
+```sh
+./build/sim_png /tmp/en en claro && python3 sim/raw2png.py /tmp/en
+python3 sim/banner.py /tmp/es /tmp/en
+```
 </details>
 
 ## Créditos
