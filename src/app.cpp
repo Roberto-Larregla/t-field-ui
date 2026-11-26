@@ -70,11 +70,11 @@ View App::snapshot() const
     return v;
 }
 
-void App::show(ScreenId id) { go(View{id, 0, ""}, true, false); }
+void App::show(ScreenId id) { go(View{id, 0, ""}, false); }
 
-// Navega a una vista. push: guardar la actual para volver con Esc.
-// restoring: se vuelve atrás, así que se conserva el estado de la pantalla (p. ej. el mapa).
-void App::go(const View &v, bool push, bool restoring)
+// Navega a una vista. restoring: se sube con Esc (o se rehace la interfaz), así que se
+// conserva el estado de la pantalla (p. ej. el mapa).
+void App::go(const View &v, bool restoring)
 {
     View cur = snapshot();
     if (cur.id == ScreenId::Settings && v.id != ScreenId::Settings)
@@ -82,16 +82,12 @@ void App::go(const View &v, bool push, bool restoring)
     bool same = cur.id == v.id && cur.node == v.node && cur.section == v.section && (v.chat.empty() || cur.chat == v.chat);
     if (same && !restoring)
         return;
-    if (push && !same) {
-        history_.push_back(cur);
-        if (history_.size() > 12)
-            history_.erase(history_.begin());
-    }
+    if (v.id == ScreenId::QuickReplies && cur.id != ScreenId::QuickReplies)
+        quick_parent_ = cur; // Respuestas rápidas cuelga de donde se abrió (Mensajes o Ajustes)
     current_ = v.id;
     lv_obj_t *scr = nullptr;
     switch (v.id) {
     case ScreenId::Home:
-        history_.clear(); // el inicio es la raíz
         home.clear_sent();
         scr = home.screen;
         if (settings_.theme == 2 && wants_dark() != g_dark)
@@ -141,16 +137,31 @@ void App::go(const View &v, bool push, bool restoring)
     refresh_input_group(); // el teclado/trackball sigue a la pantalla activa
 }
 
-void App::back()
+// Esc sube un nivel, venga uno de donde venga. Inicio es la raíz; Mensajes, Equipo, Mapa y
+// Ajustes cuelgan de él; la ficha de un nodo, de la lista de Equipo; cada sección o modo, de
+// Ajustes; Respuestas rápidas, de la pantalla que la abrió.
+View App::parent_view() const
 {
-    if (history_.empty()) {
-        go(View{}, false, true);
-        return;
+    View cur = snapshot(), up; // up: Inicio
+    switch (cur.id) {
+    case ScreenId::Team:
+        if (cur.node)
+            up.id = ScreenId::Team;
+        break;
+    case ScreenId::Settings:
+        if (cur.section >= 0)
+            up.id = ScreenId::Settings;
+        break;
+    case ScreenId::QuickReplies:
+        up = quick_parent_;
+        break;
+    default:
+        break;
     }
-    View v = history_.back();
-    history_.pop_back();
-    go(v, false, true);
+    return up;
 }
+
+void App::back() { go(parent_view(), true); }
 
 void App::set_status(const Status &s)
 {
@@ -250,18 +261,12 @@ void App::set_in_team(uint32_t num, bool in)
     }
 }
 
-void App::show_node(uint32_t num) { go(View{ScreenId::Team, num, ""}, true, false); }
+void App::show_node(uint32_t num) { go(View{ScreenId::Team, num, ""}, false); }
 
 void App::show_node_on_map(uint32_t num)
 {
     show(ScreenId::Map);
     map_screen.focus_node(num);
-}
-
-void App::navigate_to_node(uint32_t num)
-{
-    show(ScreenId::Map);
-    map_screen.nav_to_node(num);
 }
 
 std::string App::direct_chat_id(uint32_t num, bool create)
@@ -1635,7 +1640,6 @@ void App::rebuild_ui()
     }
     // lo que se estaba viendo
     View here = snapshot();
-    std::vector<View> hist = history_;
     MapScreen::State ms = map_screen.save_state();
     bool team_all = team_screen.showing_all();
     int srow = current_ == ScreenId::Settings ? settings_screen.focused_row() : -1;
@@ -1685,8 +1689,7 @@ void App::rebuild_ui()
     messages_screen.current = chat;
     settings_screen.refresh();
 
-    go(here, false, true);
-    history_ = hist;
+    go(here, true);
     messages_screen.set_draft(draft);
     if (srow >= 0)
         settings_screen.focus_row(srow);
@@ -1758,7 +1761,7 @@ void App::update_settings(const Settings &s)
         purge_old_messages();
 }
 
-void App::show_settings_section(int section) { go(View{ScreenId::Settings, 0, "", (int8_t)section}, true, false); }
+void App::show_settings_section(int section) { go(View{ScreenId::Settings, 0, "", (int8_t)section}, false); }
 
 bool App::is_team_chat(const Chat &ch) const
 {

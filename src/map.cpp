@@ -153,12 +153,6 @@ void MapScreen::create(App *app)
     lv_style_set_line_width(&track_poly_.style, 3);
     lv_style_set_line_rounded(&track_poly_.style, true);
 
-    target_line_ = lv_line_create(view);
-    lv_obj_set_style_line_color(target_line_, c(col::BLUE), 0);
-    lv_obj_set_style_line_width(target_line_, 2, 0);
-    lv_obj_set_style_line_dash_width(target_line_, 5, 0);
-    lv_obj_set_style_line_dash_gap(target_line_, 4, 0);
-    show(target_line_, false);
 
     // Regla
     ruler_line_ = lv_line_create(view);
@@ -301,13 +295,13 @@ void MapScreen::create(App *app)
         LV_EVENT_CLICKED, this);
     show(callout_, false);
 
-    // Franja superior: destino (azul) o regla (oscura)
-    strip_ = box(view, 0, 0, MAP_W, 20, col::BLUE);
+    // Franja superior de la regla
+    strip_ = box(view, 0, 0, MAP_W, 20, col::INK);
     strip_lbl_ = label(strip_, &tfield_font_12b, col::SURF, "");
     lv_obj_set_pos(strip_lbl_, 5, 3);
     lv_obj_set_size(strip_lbl_, MAP_W - 32, 14);
     lv_label_set_long_mode(strip_lbl_, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_t *nx = button(strip_, MAP_W - 22, 2, 18, 16, col::BLUE, col::SURF, nullptr);
+    lv_obj_t *nx = button(strip_, MAP_W - 22, 2, 18, 16, col::INK, col::SURF, nullptr);
     lv_obj_set_style_bg_opa(nx, LV_OPA_TRANSP, 0);
     lv_obj_set_style_radius(nx, 2, 0);
     lv_obj_center(label(nx, &tfield_font_12b, col::SURF, "\xC3\x97"));
@@ -316,8 +310,6 @@ void MapScreen::create(App *app)
             auto *s = static_cast<MapScreen *>(lv_event_get_user_data(e));
             if (s->ruler_)
                 s->ruler_toggle();
-            else
-                s->clear_nav();
         },
         LV_EVENT_CLICKED, this);
     show(strip_, false);
@@ -466,13 +458,6 @@ const std::vector<TeamNode> &MapScreen::team_nodes() const { return app_->nodes(
 
 void MapScreen::set_team(const std::vector<TeamNode> &)
 {
-    if (nav_.on && nav_.node) // el destino es un compañero: sigue su última posición
-        for (auto &n : team_nodes())
-            if (n.num == nav_.node && n.has_pos) {
-                nav_.lat = n.lat;
-                nav_.lon = n.lon;
-                nav_.alt = (pos_.valid ? pos_.alt : 0) + n.alt_diff_m;
-            }
     if (lv_screen_active() == screen && !dirty_ && team_signature() == team_sig_)
         return; // llegó telemetría, pero en el mapa no cambia nada
     redraw();
@@ -497,39 +482,8 @@ void MapScreen::focus_node(uint32_t num)
     toast(tr("Ese nodo no ha enviado posici\xC3\xB3n"));
 }
 
-void MapScreen::nav_to_node(uint32_t num)
-{
-    for (auto &n : team_nodes()) {
-        if (n.num != num || !n.has_pos)
-            continue;
-        nav_ = Nav{};
-        nav_.on = true;
-        nav_.node = num;
-        sel_kind_ = SEL_NONE; // el destino tiene su franja arriba
-        sel_id_ = 0;
-        nav_.name = n.name;
-        nav_.lat = n.lat;
-        nav_.lon = n.lon;
-        nav_.alt = (pos_.valid ? pos_.alt : 0) + n.alt_diff_m;
-        trail_node_ = num;
-        center_on_me();
-        return;
-    }
-    toast(tr("Ese nodo no ha enviado posici\xC3\xB3n"));
-}
-
 void MapScreen::set_waypoints(const std::vector<Waypoint> &) // la lista es la de la App
 {
-    if (nav_.on && nav_.wp) { // el destino pudo cambiar de nombre o borrarse
-        bool found = false;
-        for (auto &w : wps())
-            if (w.id == nav_.wp) {
-                found = true;
-                nav_.name = w.name;
-            }
-        if (!found)
-            nav_ = Nav{};
-    }
     update_toolbar();
     if (panel_kind_ == PANEL_POINTS)
         rebuild_points_panel();
@@ -1078,7 +1032,7 @@ void MapScreen::redraw()
     set_poly(track_poly_, fresh);
 
     // --- Coordenadas (antes de los marcadores: las etiquetas las evitan)
-    bool strip_on = nav_.on || ruler_;
+    bool strip_on = ruler_;
     if (follow_ && pos_.valid) {
         char acc[16];
         snprintf(acc, sizeof(acc), tr("  \xC2\xB1%u m"), pos_.acc_m);
@@ -1157,7 +1111,7 @@ void MapScreen::redraw()
     ui::align(attrib_, LV_ALIGN_BOTTOM_RIGHT, -(MAP_W - CTRL_X) - 2, -3); // a la izquierda de los botones
 
     set_text(layer_btn_lbl_, src ? src->name() : tr("Sin mapa base"));
-    update_nav_strip();
+    update_strip();
 
     // encima de los marcadores (que se crean a medida que hacen falta); cambiar el orden
     // redibuja todo el mapa, así que solo si no está ya así
@@ -1180,20 +1134,12 @@ void MapScreen::place_me()
     }
     show(me_halo_, me_in);
     show(me_dot_, me_in);
-    if (nav_.on && pos_.valid) {
-        int32_t tx, ty;
-        to_screen(nav_.lat, nav_.lon, tx, ty);
-        std::vector<lv_point_precise_t> seg;
-        clip_polyline({{mx, my}, {tx, ty}}, seg);
-        set_line(target_line_, target_vec_, seg);
-    } else
-        show(target_line_, false);
     if (follow_ && pos_.valid) {
         char acc[16];
         snprintf(acc, sizeof(acc), tr("  \xC2\xB1%u m"), pos_.acc_m);
         set_text(coords_, format_utm(to_utm(pos_.lat, pos_.lon)) + acc);
     }
-    update_nav_strip();
+    update_strip();
 }
 
 void MapScreen::place_markers()
@@ -1202,7 +1148,7 @@ void MapScreen::place_markers()
     hits_.clear();
     const Settings &st = app_->settings();
     auto pinned = [](const std::vector<uint32_t> &v, uint32_t id) { return std::find(v.begin(), v.end(), id) != v.end(); };
-    bool strip_on = nav_.on || ruler_;
+    bool strip_on = ruler_;
 
     // Puntos: cuadrado (los recibidos de otro equipo, con borde de color y fondo blanco).
     // Una campaña junta cientos: solo se crean marcadores para los que se ven, hasta
@@ -1220,7 +1166,7 @@ void MapScreen::place_markers()
             if (!cached_screen(wp_xy_, i, all[i].id, all[i].lat, all[i].lon, sx, sy))
                 continue;
             double dx = sx - MAP_W / 2.0, dy = sy - MAP_H / 2.0;
-            bool key = (nav_.on && nav_.wp == all[i].id) || highlight_wp_ == all[i].id ||
+            bool key = highlight_wp_ == all[i].id ||
                        (sel_kind_ == SEL_WP && sel_id_ == all[i].id);
             uint8_t layer = all[i].from.empty() ? MAP_NAMES_MINE : MAP_NAMES_SHARED;
             if ((st.map_hidden & layer) && !key) // capa oculta (el destino y lo elegido, igual se ven)
@@ -1275,7 +1221,7 @@ void MapScreen::place_markers()
             continue;
         int32_t sx, sy;
         bool inside = cached_screen(node_xy_, ni, n.num, n.lat, n.lon, sx, sy);
-        bool key = n.num == trail_node_ || (sel_kind_ == SEL_NODE && sel_id_ == n.num) || (nav_.on && nav_.node == n.num);
+        bool key = n.num == trail_node_ || (sel_kind_ == SEL_NODE && sel_id_ == n.num);
         if (n.in_team && (st.map_hidden & MAP_NAMES_TEAM) && !key)
             continue; // capa "Mi equipo" oculta
         if (n.in_team || key)
@@ -1388,7 +1334,7 @@ void MapScreen::place_markers()
         if (h.kind == SEL_WP) {
             const Waypoint &w = *wv[h.mark].w;
             bool theirs = !w.from.empty();
-            bool key = (nav_.on && nav_.wp == w.id) || highlight_wp_ == w.id;
+            bool key = highlight_wp_ == w.id;
             bool pin = pinned(st.map_name_wps, w.id);
             bool type = (st.map_names & (theirs ? MAP_NAMES_SHARED : MAP_NAMES_MINE)) && wp_named < MAP_WP_LABELS;
             if (!key && !pin && !type)
@@ -1399,7 +1345,7 @@ void MapScreen::place_markers()
                             key ? 0 : pin ? 1 : 3, false});
         } else {
             const TeamNode &n = *list[h.mark].n;
-            bool key = (nav_.on && nav_.node == n.num) || trail_node_ == n.num;
+            bool key = trail_node_ == n.num;
             bool pin = pinned(st.map_name_nodes, n.num);
             bool type = st.map_names & (n.in_team ? MAP_NAMES_TEAM : MAP_NAMES_OTHERS);
             if (!key && !pin && !type)
@@ -1491,7 +1437,7 @@ void MapScreen::place_selection(std::vector<lv_area_t> &placed)
     show(callout_, true);
     lv_obj_update_layout(callout_);
     int32_t w = lv_obj_get_width(callout_), h = lv_obj_get_height(callout_);
-    int32_t top = (nav_.on || ruler_) ? 22 : 20;
+    int32_t top = (ruler_) ? 22 : 20;
     lv_area_t va;
     lv_obj_get_coords(view, &va);
     // arriba, abajo, a la derecha o a la izquierda: donde no tape otro marcador ni tu posición
@@ -1574,27 +1520,8 @@ void MapScreen::open_selection()
         open_dialog(DLG_EDIT_POINT, id);
 }
 
-// ------------------------------------------------------------- navegación
-void MapScreen::set_nav_to_waypoint(const Waypoint &w)
-{
-    nav_ = Nav{};
-    nav_.on = true;
-    nav_.wp = w.id;
-    nav_.name = w.name;
-    nav_.lat = w.lat;
-    nav_.lon = w.lon;
-    nav_.alt = w.alt;
-}
-
-void MapScreen::clear_nav()
-{
-    if (nav_.route && shown_route_ == nav_.route)
-        shown_route_ = 0;
-    nav_ = Nav{};
-    redraw();
-}
-
-void MapScreen::update_nav_strip()
+// ------------------------------------------------------------------ regla
+void MapScreen::update_strip()
 {
     char buf[128];
     if (ruler_) {
@@ -1612,17 +1539,7 @@ void MapScreen::update_nav_strip()
         show(strip_, true);
         return;
     }
-    if (!nav_.on || !pos_.valid) {
-        show(strip_, false);
-        return;
-    }
-    set_bg(strip_, col::BLUE);
-    int32_t d = (int32_t)haversine_m(pos_.lat, pos_.lon, nav_.lat, nav_.lon);
-    int b = (int)bearing_deg(pos_.lat, pos_.lon, nav_.lat, nav_.lon);
-    snprintf(buf, sizeof(buf), "%s \xC2\xB7 %s %s %d\xC2\xB0 \xC2\xB7 %s", nav_.name.c_str(), format_distance(d).c_str(),
-             cardinal(b), b, format_alt_diff(nav_.alt - pos_.alt).c_str());
-    set_text(strip_lbl_, buf);
-    show(strip_, true);
+    show(strip_, false);
 }
 
 void MapScreen::update_toolbar()
@@ -1754,8 +1671,7 @@ void MapScreen::rebuild_points_panel()
         l2 += w.from.empty() ? w.time : tr("de ") + w.from;
         if (!w.note.empty())
             l2 += " \xC2\xB7 " + w.note;
-        bool target = nav_.on && nav_.wp == w.id;
-        lv_obj_t *r = list_row(panel_list_, group, target, w.name, l2, target ? tr("Destino") : "");
+        lv_obj_t *r = list_row(panel_list_, group, false, w.name, l2, "");
         lv_obj_set_user_data(r, (void *)(uintptr_t)w.id);
         lv_obj_add_event_cb(
             r, [](lv_event_t *e) {
@@ -2096,7 +2012,7 @@ void MapScreen::toast(const std::string &msg)
     // abajo, sobre la escala; si lo elegido está abajo, arriba (bajo las coordenadas)
     bool sel_low = !lv_obj_has_flag(sel_ring_, LV_OBJ_FLAG_HIDDEN) && lv_obj_get_y(sel_ring_) > MAP_H / 2;
     if (sel_low)
-        ui::align(toast_, LV_ALIGN_TOP_MID, -(MAP_W - CTRL_X) / 2, (nav_.on || ruler_) ? 46 : 26);
+        ui::align(toast_, LV_ALIGN_TOP_MID, -(MAP_W - CTRL_X) / 2, (ruler_) ? 46 : 26);
     else
         ui::align(toast_, LV_ALIGN_BOTTOM_MID, -(MAP_W - CTRL_X) / 2, -22);
     lv_obj_move_foreground(toast_);
@@ -2339,8 +2255,7 @@ void MapScreen::open_dialog(DlgKind kind, uint32_t id)
         set_text(dlg_info_, info);
         lv_textarea_set_text(dlg_name_, draft_.name.c_str());
         lv_textarea_set_text(dlg_note_, draft_.note.c_str());
-        bool target = nav_.on && nav_.wp == draft_.id;
-        set_dialog_buttons(tr("Borrar"), tr("Compartir"), target ? tr("Sin destino") : tr("Ir aqu\xC3\xAD"), tr("Guardar"));
+        set_dialog_buttons(tr("Borrar"), tr("Compartir"), "", tr("Guardar"));
     } else if (kind == DLG_ROUTE) {
         const Track &t = app_->track();
         snprintf(buf, sizeof(buf), tr("%s \xC2\xB7 %s \xC2\xB7 +%d m \xC2\xB7 %u puntos"), format_distance(t.distance_m).c_str(),
@@ -2372,9 +2287,7 @@ void MapScreen::open_dialog(DlgKind kind, uint32_t id)
         set_text(dlg_info_, info);
         lv_textarea_set_text(dlg_name_, t->name.c_str());
         lv_textarea_set_text(dlg_note_, t->note.c_str());
-        bool back = nav_.on && nav_.route == id;
-        set_dialog_buttons(tr("Borrar"), shown_route_ == id ? tr("Ocultar") : tr("Mostrar"), back ? tr("Sin destino") : tr("Ir al inicio"),
-                           tr("Guardar"));
+        set_dialog_buttons(tr("Borrar"), shown_route_ == id ? tr("Ocultar") : tr("Mostrar"), "", tr("Guardar"));
     }
     update_dialog_hint();
     show(dlg_, true);
@@ -2446,14 +2359,6 @@ void MapScreen::dialog_action(int which)
         if (which == 1) {
             close_dialog();
             open_share(draft_.id, false);
-        } else if (which == 2) {
-            if (nav_.on && nav_.wp == draft_.id)
-                nav_ = Nav{};
-            else
-                for (auto &w : app_->waypoints())
-                    if (w.id == draft_.id)
-                        set_nav_to_waypoint(w);
-            close_dialog();
         } else {
             close_dialog();
             toast(tr("Cambios guardados"));
@@ -2492,8 +2397,6 @@ void MapScreen::dialog_action(int which)
                 arm(dlg_btn_[0], dlg_btn_lbl_[0], tr("\xC2\xBF" "Borrar?"));
                 return;
             }
-            if (nav_.route == id)
-                nav_ = Nav{};
             app_->delete_track(id);
             close_dialog();
             toast(tr("Ruta borrada"));
@@ -2510,25 +2413,6 @@ void MapScreen::dialog_action(int which)
                 redraw();
             } else
                 show_route(id); // la encuadra: puede estar lejos
-        } else if (which == 2) {
-            if (nav_.on && nav_.route == id) {
-                clear_nav();
-                close_dialog();
-                return;
-            }
-            for (auto &t : saved())
-                if (t.id == id && t.count) {
-                    const TrackPoint &s0 = t.start;
-                    nav_ = Nav{};
-                    nav_.on = true;
-                    nav_.route = id;
-                    nav_.name = tr("Inicio de ") + t.name;
-                    nav_.lat = s0.lat;
-                    nav_.lon = s0.lon;
-                    nav_.alt = (int32_t)s0.alt;
-                    shown_route_ = id;
-                }
-            close_dialog();
         } else {
             close_dialog();
             toast(tr("Cambios guardados"));
@@ -2779,8 +2663,6 @@ MapScreen::State MapScreen::save_state() const
     s.clat = clat_, s.clon = clon_, s.zoom = zoom_;
     s.follow = follow_, s.team_only = team_only_;
     s.shown_route = shown_route_, s.highlight_wp = highlight_wp_, s.trail_node = trail_node_;
-    s.nav_on = nav_.on, s.nav_wp = nav_.wp, s.nav_route = nav_.route, s.nav_node = nav_.node;
-    s.nav_name = nav_.name, s.nav_lat = nav_.lat, s.nav_lon = nav_.lon, s.nav_alt = nav_.alt;
     return s;
 }
 
@@ -2791,8 +2673,6 @@ void MapScreen::restore_state(const State &s)
     clat_ = s.clat, clon_ = s.clon, zoom_ = s.zoom;
     follow_ = s.follow, team_only_ = s.team_only;
     shown_route_ = s.shown_route, highlight_wp_ = s.highlight_wp, trail_node_ = s.trail_node;
-    nav_.on = s.nav_on, nav_.wp = s.nav_wp, nav_.route = s.nav_route, nav_.node = s.nav_node;
-    nav_.name = s.nav_name, nav_.lat = s.nav_lat, nav_.lon = s.nav_lon, nav_.alt = s.nav_alt;
     update_center_button();
     update_toolbar();
     dirty_ = true;

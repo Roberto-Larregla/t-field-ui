@@ -40,8 +40,12 @@ APP_TEST(tema_oscuro_vuelve_al_mismo_lugar)
     th::key(LV_KEY_RIGHT); // sigue en la misma fila: Automático
     th::tick(50);
     CHECK_EQ((int)app->settings().theme, 2);
+    th::key(LV_KEY_ESC); // sube: Ajustes, y luego Inicio
+    CHECK(app->current() == ScreenId::Settings);
+    CHECK_EQ(app->settings_screen.section(), -1);
     th::key(LV_KEY_ESC);
-    CHECK(app->current() == ScreenId::Map); // la historia se mantiene
+    CHECK(app->current() == ScreenId::Home);
+    app->show(ScreenId::Map); // el mapa sobrevive a rehacer la interfaz
     double la1, lo1;
     app->map_screen.center(la1, lo1);
     CHECK_EQ((int)app->map_screen.zoom(), (int)z);

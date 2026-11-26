@@ -44,7 +44,6 @@ class MapScreen {
     void center_on_me();
     void focus_waypoint(uint32_t id); // centra el mapa en un punto y lo resalta
     void focus_node(uint32_t num);    // centra en un nodo y muestra su rastro
-    void nav_to_node(uint32_t num);   // el nodo queda como destino
     void on_enter();
     void shown();                // la pantalla quedó visible: dibuja lo pendiente
     void set_team_only(bool on); // ocultar nodos fuera de mi equipo
@@ -62,11 +61,6 @@ class MapScreen {
         uint8_t zoom = 15;
         bool follow = true, team_only = false;
         uint32_t shown_route = 0, highlight_wp = 0, trail_node = 0;
-        double nav_lat = 0, nav_lon = 0;
-        int32_t nav_alt = 0;
-        bool nav_on = false;
-        uint32_t nav_wp = 0, nav_route = 0, nav_node = 0;
-        std::string nav_name;
     };
     State save_state() const;
     void restore_state(const State &s);
@@ -94,15 +88,6 @@ class MapScreen {
         size_t mark;   // índice en team_marks_ o wp_marks_
     };
     enum SelKind : uint8_t { SEL_NONE = 0, SEL_NODE, SEL_WP };
-    struct Nav { // destino de navegación
-        bool on = false;
-        uint32_t wp = 0;    // id de punto, o 0
-        uint32_t route = 0; // id de ruta (volver al inicio), o 0
-        uint32_t node = 0;  // nodo del equipo (se actualiza si se mueve), o 0
-        std::string name;
-        double lat = 0, lon = 0;
-        int32_t alt = 0;
-    };
     enum DlgKind { DLG_NONE = 0, DLG_NEW_POINT, DLG_EDIT_POINT, DLG_ROUTE, DLG_EDIT_ROUTE };
     enum PanelKind { PANEL_NONE = 0, PANEL_POINTS, PANEL_LAYERS, PANEL_ROUTES, PANEL_NAMES };
 
@@ -143,7 +128,7 @@ class MapScreen {
     std::string team_signature() const;
     void place_markers();
     void update_toolbar();
-    void update_nav_strip();
+    void update_strip(); // franja de la regla
     void update_center_button();
     void show_panel(int which);
     void rebuild_points_panel();
@@ -160,8 +145,6 @@ class MapScreen {
     void update_names_button();
     bool to_screen(double lat, double lon, int32_t &sx, int32_t &sy) const;
     void line_points(Proj &c, const std::vector<TrackPoint> &pts, std::vector<lv_point_precise_t> &out);
-    void set_nav_to_waypoint(const Waypoint &w);
-    void clear_nav();
     // regla
     void ruler_toggle();
     void ruler_tap(int32_t sx, int32_t sy);
@@ -188,7 +171,6 @@ class MapScreen {
     double clat_ = 0, clon_ = 0;
     uint8_t zoom_ = 15;
     bool follow_ = true;
-    Nav nav_;
     uint32_t shown_route_ = 0; // ruta guardada dibujada en el mapa
     uint32_t highlight_wp_ = 0; // punto resaltado (nombre completo)
     uint32_t trail_node_ = 0;   // nodo cuyo rastro se dibuja
@@ -207,7 +189,6 @@ class MapScreen {
     lv_obj_t *tiles_[6]{};
     lv_obj_t *grid_[16]{};
     std::vector<lv_point_precise_t> grid_pts_;
-    lv_obj_t *target_line_ = nullptr;
     Poly track_poly_, route_poly_, trail_poly_;
     Proj track_proj_, route_proj_, trail_proj_;
     uint32_t trail_color_ = 0;
@@ -216,7 +197,7 @@ class MapScreen {
     // teselas, líneas y marcadores
     int64_t l22_ = 0, t22_ = 0;
     int shift_ = 7;
-    std::vector<lv_point_precise_t> target_vec_, ruler_vec_;
+    std::vector<lv_point_precise_t> ruler_vec_;
     std::string team_sig_; // lo dibujado del equipo: si no cambia, no se redibuja
     lv_obj_t *me_halo_ = nullptr, *me_dot_ = nullptr, *cross_ = nullptr;
     std::vector<NodeMarker> team_marks_;

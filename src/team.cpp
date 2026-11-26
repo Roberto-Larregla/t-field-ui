@@ -30,7 +30,7 @@ static constexpr int32_t PILLS_Y = BAND_H, PILLS_H = 24;
 static constexpr int32_t GRID_Y = PILLS_Y + PILLS_H;
 static constexpr int32_t TILE_W = 156, TILE_H = 93, TILE_GAP = 3;
 
-enum DetailButton { B_MSG, B_MAP, B_GOTO, B_POS, B_ROUTE, B_TEAM };
+enum DetailButton { B_MSG, B_MAP, B_POS, B_ROUTE, B_TEAM, B_COUNT };
 
 } // namespace tfield
 
@@ -40,7 +40,6 @@ LV_IMAGE_DECLARE(tfield_picto_arrow);
 LV_IMAGE_DECLARE(tfield_picto_arrow_big);
 LV_IMAGE_DECLARE(tfield_picto_mail16);
 LV_IMAGE_DECLARE(tfield_picto_map16);
-LV_IMAGE_DECLARE(tfield_picto_nav);
 LV_IMAGE_DECLARE(tfield_picto_locate);
 LV_IMAGE_DECLARE(tfield_picto_route);
 LV_IMAGE_DECLARE(tfield_picto_user_plus);
@@ -275,19 +274,21 @@ void TeamScreen::create(App *app)
     lv_obj_set_size(d_status_, SCREEN_W - 12, 14);
     lv_label_set_long_mode(d_status_, LV_LABEL_LONG_MODE_DOTS);
 
-    // acciones: botones grandes con pictograma
-    static const char *btn_text[6] = {"Mensaje", "Ver en mapa", "Ir hacia", "Pedir posici\xC3\xB3n", "Ruta de se\xC3\xB1" "al", "Agregar a equipo"};
-    const lv_image_dsc_t *btn_icon[6] = {&tfield_picto_mail16, &tfield_picto_map16, &tfield_picto_nav,
-                                         &tfield_picto_locate, &tfield_picto_route, &tfield_picto_user_plus};
-    for (int i = 0; i < 6; i++) {
-        int32_t x = 3 + (i % 3) * 106, y = 150 + (i / 3) * 45;
-        d_btn_[i] = button(detail_, x, y, 102, 42, col::SURF, col::INK, detail_group_);
+    // acciones: botones grandes con pictograma; arriba las dos principales, abajo tres
+    static const char *btn_text[B_COUNT] = {"Mensaje", "Ver en mapa", "Pedir posici\xC3\xB3n", "Ruta de se\xC3\xB1" "al", "Agregar a equipo"};
+    const lv_image_dsc_t *btn_icon[B_COUNT] = {&tfield_picto_mail16, &tfield_picto_map16, &tfield_picto_locate,
+                                               &tfield_picto_route, &tfield_picto_user_plus};
+    for (int i = 0; i < B_COUNT; i++) {
+        bool top = i < 2;
+        int32_t w = top ? 155 : 102;
+        int32_t x = top ? 3 + i * (w + 4) : 3 + (i - 2) * 106, y = top ? 150 : 195;
+        d_btn_[i] = button(detail_, x, y, w, 42, col::SURF, col::INK, detail_group_);
         lv_obj_set_style_radius(d_btn_[i], 4, 0);
         lv_obj_set_style_bg_color(d_btn_[i], c(col::BG), LV_STATE_PRESSED);
         d_btn_img_[i] = picto(d_btn_[i], btn_icon[i], col::INK);
         ui::align(d_btn_img_[i], LV_ALIGN_TOP_MID, 0, 4);
         d_btn_lbl_[i] = label(d_btn_[i], &tfield_font_12b, col::INK, "");
-        set_fit(d_btn_lbl_[i], tr(btn_text[i]), &tfield_font_12b, &tfield_font_12, 96);
+        set_fit(d_btn_lbl_[i], tr(btn_text[i]), &tfield_font_12b, &tfield_font_12, w - 6);
         ui::align(d_btn_lbl_[i], LV_ALIGN_TOP_MID, 0, 22);
         lv_obj_set_user_data(d_btn_[i], (void *)(intptr_t)i);
         lv_obj_add_event_cb(
@@ -299,7 +300,6 @@ void TeamScreen::create(App *app)
                     return;
                 switch (b) {
                 case B_MSG: s->app_->open_direct_chat(num); break;
-                case B_GOTO: s->app_->navigate_to_node(num); break;
                 case B_MAP: s->app_->show_node_on_map(num); break;
                 case B_POS: s->app_->request_position(num); break;
                 case B_ROUTE: s->app_->traceroute(num); break;
@@ -693,21 +693,16 @@ void TeamScreen::refresh_detail()
     set_fit(d_btn_lbl_[B_TEAM], n->in_team ? tr("Quitar del equipo") : tr("Agregar a equipo"), &tfield_font_12b,
             &tfield_font_12, 96);
     ui::align(d_btn_lbl_[B_TEAM], LV_ALIGN_TOP_MID, 0, 22);
-    // sin posición: Ver en mapa e Ir hacia, apagados
+    // sin posición: Ver en mapa, apagado
     bool pos = n->dist_m >= 0;
-    for (int b : {B_GOTO, B_MAP}) {
-        if (pos)
-            lv_obj_remove_state(d_btn_[b], LV_STATE_DISABLED);
-        else
-            lv_obj_add_state(d_btn_[b], LV_STATE_DISABLED);
-    }
+    if (pos)
+        lv_obj_remove_state(d_btn_[B_MAP], LV_STATE_DISABLED);
+    else
+        lv_obj_add_state(d_btn_[B_MAP], LV_STATE_DISABLED);
     set_bg(d_btn_[B_MAP], pos ? col::GREEN : col::SURF);
     set_border_color(d_btn_[B_MAP], pos ? col::GREEN : col::LINE);
     set_color(d_btn_lbl_[B_MAP], pos ? col::SURF : col::MUTED);
     set_recolor(d_btn_img_[B_MAP], pos ? col::SURF : col::MUTED);
-    set_border_color(d_btn_[B_GOTO], pos ? col::INK : col::LINE);
-    set_color(d_btn_lbl_[B_GOTO], pos ? col::INK : col::MUTED);
-    set_recolor(d_btn_img_[B_GOTO], pos ? col::INK : col::MUTED);
 
     if (status_num_ == detail_num_ && !status_text_.empty()) {
         set_text(d_status_, status_text_);

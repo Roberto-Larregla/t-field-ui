@@ -171,8 +171,6 @@ int main(int argc, char **argv)
     render(out + "/equipo_ficha.raw");
     app.show_node_on_map(2);
     render(out + "/mapa_rastro.raw");
-    app.navigate_to_node(3);
-    render(out + "/mapa_ir_nodo.raw");
     app.show(tfield::ScreenId::Home);
     app.trigger_sos();
     render(out + "/sos.raw");

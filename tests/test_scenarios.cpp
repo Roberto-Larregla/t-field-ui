@@ -38,23 +38,50 @@ static lv_obj_t *last_in_group(lv_group_t *g) { return lv_group_get_obj_by_index
 // ------------------------------------------------------------ navegación
 APP_TEST(navegacion_esc)
 {
+    // Esc sube un nivel, venga uno de donde venga: el chat abierto desde una ficha sube al inicio
     app->show(ScreenId::Team);
     app->show_node(2);
     app->open_direct_chat(2);
     CHECK(app->current() == ScreenId::Messages);
     CHECK_EQ(app->messages_screen.current, std::string("geo2"));
     th::key(LV_KEY_ESC);
-    CHECK(app->current() == ScreenId::Team);
-    CHECK_EQ(app->team_screen.detail_num(), (uint32_t)2);
+    CHECK(app->current() == ScreenId::Home);
+    th::key(LV_KEY_ESC); // en el inicio no pasa nada
+    CHECK(app->current() == ScreenId::Home);
+
+    // ficha, luego otra ficha: Esc va a la lista de Equipo, no a la ficha anterior
+    app->show(ScreenId::Team);
+    app->show_node(2);
+    app->show_node(3);
     th::key(LV_KEY_ESC);
     CHECK(app->current() == ScreenId::Team);
     CHECK_EQ(app->team_screen.detail_num(), (uint32_t)0);
     th::key(LV_KEY_ESC);
     CHECK(app->current() == ScreenId::Home);
-    th::key(LV_KEY_ESC); // en el inicio no pasa nada
+
+    // Ver en mapa desde una ficha: Esc quita lo elegido y después sube al inicio
+    app->show(ScreenId::Team);
+    app->show_node(2);
+    app->show_node_on_map(2);
+    CHECK(app->current() == ScreenId::Map);
+    for (int i = 0; i < 4 && app->current() == ScreenId::Map; i++)
+        th::key(LV_KEY_ESC);
     CHECK(app->current() == ScreenId::Home);
 
-    // muchas vistas seguidas: el historial se acota y siempre se vuelve al inicio
+    // Ajustes: sección y modo suben a Ajustes; Respuestas rápidas, a donde se abrió
+    app->show_settings_section(SettingsScreen::S_GPS);
+    app->show_settings_section(SettingsScreen::S_MODE0 + 2);
+    th::key(LV_KEY_ESC);
+    CHECK(app->current() == ScreenId::Settings);
+    CHECK_EQ(app->settings_screen.section(), -1);
+    app->show(ScreenId::Messages);
+    app->show(ScreenId::QuickReplies);
+    th::key(LV_KEY_ESC);
+    CHECK(app->current() == ScreenId::Messages);
+    th::key(LV_KEY_ESC);
+    CHECK(app->current() == ScreenId::Home);
+
+    // muchas vistas seguidas: Esc siempre llega al inicio
     for (int i = 0; i < 30; i++) {
         app->show_node(i % 2 ? 2 : 3);
         app->show(ScreenId::Map);

@@ -15,7 +15,7 @@ namespace tfield {
 
 enum class ScreenId { Home, Messages, QuickReplies, Map, Team, Settings };
 
-// Una "vista" = pantalla + su estado (chat abierto, ficha de nodo). Esc vuelve a la anterior.
+// Una "vista" = pantalla + su estado (chat abierto, ficha de nodo). Esc sube a la vista de arriba.
 struct View {
     ScreenId id = ScreenId::Home;
     uint32_t node = 0;   // Equipo: ficha abierta (0 = lista)
@@ -195,7 +195,7 @@ class TeamScreen {
     lv_obj_t *d_big_ = nullptr, *d_arrow_ = nullptr, *d_dist_ = nullptr, *d_dist_unit_ = nullptr, *d_bear_ = nullptr;
     lv_obj_t *d_tile_[4]{}, *d_tlbl_[4]{}, *d_tval_[4]{};
     lv_obj_t *d_pos_lbl_ = nullptr, *d_pos_ = nullptr, *d_hw_ = nullptr;
-    lv_obj_t *d_btn_[6]{}, *d_btn_img_[6]{}, *d_btn_lbl_[6]{};
+    lv_obj_t *d_btn_[5]{}, *d_btn_img_[5]{}, *d_btn_lbl_[5]{}; // Mensaje, Ver en mapa; Pedir posición, Ruta de señal, Equipo
     lv_group_t *detail_group_ = nullptr;
     uint32_t detail_num_ = 0;
     std::string status_text_;
@@ -419,7 +419,6 @@ class App {
     void set_in_team(uint32_t num, bool in);
     void show_node(uint32_t num);          // ficha del nodo
     void show_node_on_map(uint32_t num);   // mapa centrado en el nodo, con su rastro
-    void navigate_to_node(uint32_t num);   // el nodo queda como destino
     void open_direct_chat(uint32_t num);
     void request_position(uint32_t num);
     void position_received(uint32_t num);  // respuesta del firmware
@@ -489,10 +488,11 @@ class App {
     std::vector<TrackPoint> loaded_pts_;
     ChannelKey new_key();
     void sos_targets(std::vector<std::string> &chats, std::vector<uint32_t> &direct) const;
-    void go(const View &v, bool push, bool restoring);
+    void go(const View &v, bool restoring);
+    View parent_view() const;
     View snapshot() const;
     ScreenId current_ = ScreenId::Home;
-    std::vector<View> history_;
+    View quick_parent_; // de dónde se abrió Respuestas rápidas (Esc vuelve ahí)
     Status status_;
     std::vector<Chat> chats_;
     std::map<std::string, std::vector<Message>> messages_;

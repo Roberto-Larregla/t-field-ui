@@ -15,9 +15,9 @@
 // pictogramas (fonts/tfield_pictos.c, C): fuera del namespace
 LV_IMAGE_DECLARE(tfield_picto_settings);
 LV_IMAGE_DECLARE(tfield_picto_sun);
-LV_IMAGE_DECLARE(tfield_picto_locate);
+LV_IMAGE_DECLARE(tfield_picto_locate14);
 LV_IMAGE_DECLARE(tfield_picto_mail);
-LV_IMAGE_DECLARE(tfield_picto_map16);
+LV_IMAGE_DECLARE(tfield_picto_map14);
 LV_IMAGE_DECLARE(tfield_picto_lock);
 LV_IMAGE_DECLARE(tfield_picto_sos);
 LV_IMAGE_DECLARE(tfield_picto_badge);
@@ -81,8 +81,9 @@ static int mode_in_use(const Settings &s)
 
 static const lv_image_dsc_t *section_icon(int i)
 {
-    static const lv_image_dsc_t *ic[SettingsScreen::S_COUNT] = {&tfield_picto_sun,  &tfield_picto_locate, &tfield_picto_mail,
-                                                                &tfield_picto_map16, &tfield_picto_lock,  &tfield_picto_sos,
+    // todos de 14 px: así el texto queda a la misma distancia en cada botón
+    static const lv_image_dsc_t *ic[SettingsScreen::S_COUNT] = {&tfield_picto_sun,   &tfield_picto_locate14, &tfield_picto_mail,
+                                                                &tfield_picto_map14, &tfield_picto_lock,     &tfield_picto_sos,
                                                                 &tfield_picto_badge, &tfield_picto_antenna};
     return ic[i];
 }
@@ -287,11 +288,17 @@ void SettingsScreen::create(App *app)
         tiles_[i] = button(grid_, x, y, TILE_W, TILE_H, col::SURF, col::LINE, nullptr);
         lv_obj_set_style_radius(tiles_[i], 4, 0);
         lv_obj_set_style_bg_color(tiles_[i], c(col::BG), LV_STATE_PRESSED);
+        // pictograma y nombre, centrados juntos con 5 px entre ellos (3 si el nombre es largo)
+        constexpr int32_t IC = 14, IN = TILE_W - 2;
         lv_obj_t *img = picto(tiles_[i], section_icon(i), SECTION_COLORS[i]);
-        lv_obj_set_pos(img, 3, (TILE_H - 2 - lv_image_get_src_height(img)) / 2);
         lv_obj_t *t = label(tiles_[i], &tfield_font_12b, col::INK, tr(TILE_NAMES[i]));
-        lv_obj_set_pos(t, 19, 4);
-        lv_obj_set_size(t, TILE_W - 21, 15);
+        lv_obj_update_layout(t);
+        int32_t tw = std::min<int32_t>(lv_obj_get_width(t), IN - 2 - IC - 3); // "Messages" cabe justo
+        int32_t gap = std::clamp<int32_t>(IN - 4 - IC - tw, 3, 5);
+        int32_t x0 = (IN - (IC + gap + tw)) / 2;
+        lv_obj_set_pos(img, x0, (TILE_H - 2 - IC) / 2);
+        lv_obj_set_pos(t, x0 + IC + gap, 4);
+        lv_obj_set_size(t, tw, 15);
         lv_label_set_long_mode(t, LV_LABEL_LONG_MODE_DOTS);
         lv_obj_set_user_data(tiles_[i], (void *)(intptr_t)i);
         lv_obj_add_event_cb(
